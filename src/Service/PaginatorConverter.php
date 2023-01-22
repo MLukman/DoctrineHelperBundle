@@ -12,9 +12,15 @@ final class PaginatorConverter implements ParamConverterInterface
 
     public function apply(Request $request, ParamConverter $configuration): bool
     {
-        list($page, $limit) = [max(1, $request->query->get('page', 1)), $request->query->get('limit', 0)];
-        $request->attributes->set($configuration->getName(), new Paginator($page, $limit));
+        $request->attributes->set($configuration->getName(),
+            $this->createPaginator($request->query->all()));
         return true;
+    }
+
+    public function createPaginator(array $queries): Paginator
+    {
+        list($page, $limit) = [max(1, $queries['page'] ?? 1), $queries['limit'] ?? 0];
+        return new Paginator($page, $limit);
     }
 
     public function supports(ParamConverter $configuration): bool

@@ -85,6 +85,9 @@ class FileWrapper implements FromUploadedFileInterface
 
     public static function fromUploadedFile(UploadedFile $file): ?static
     {
+        if (!$file->isValid()) {
+            return null;
+        }
         $filestore = new self($file->getClientOriginalName(), $file->getSize(), $file->getMimeType());
         $filestore->setStream(fopen($file->getRealPath(), 'r'));
         return $filestore;
