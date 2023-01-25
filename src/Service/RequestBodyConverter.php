@@ -14,7 +14,14 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\PropertyInfo\Extractor\ConstructorExtractor;
+use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
+use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
+use Symfony\Component\Serializer\Encoder\JsonEncoder;
+use Symfony\Component\Serializer\Normalizer\ArrayDenormalizer;
 use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
+use Symfony\Component\Serializer\Serializer;
 use Symfony\Component\Serializer\SerializerInterface;
 
 /**
@@ -24,11 +31,25 @@ use Symfony\Component\Serializer\SerializerInterface;
 final class RequestBodyConverter implements ParamConverterInterface
 {
     protected $errors = [];
+    private SerializerInterface $serializer;
 
-    public function __construct(private SerializerInterface $serializer,
-                                private ObjectValidator $validator)
+    public function __construct(private ObjectValidator $validator)
     {
-
+        $phpDocExtractor = new PhpDocExtractor();
+        $typeExtractor = new PropertyInfoExtractor(
+            typeExtractors: [
+            new ConstructorExtractor([$phpDocExtractor]),
+            $phpDocExtractor,
+            new ReflectionExtractor(),
+            ]
+        );
+        $this->serializer = new Serializer(
+            normalizers: [
+            new ObjectNormalizer(propertyTypeExtractor: $typeExtractor),
+            new ArrayDenormalizer(),
+            ],
+            encoders: ['json' => new JsonEncoder()]
+        );
     }
 
     static function array_filter_recursive($input, $callback = null)

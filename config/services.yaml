@@ -6,3 +6,11 @@ services:
 
     MLukman\DoctrineHelperBundle\Service\:
         resource: '../src/Service/'
+
+    MLukman\DoctrineHelperBundle\EventSubscriber\:
+        resource: '../src/EventSubscriber/'
+        tags: ['doctrine.event_subscriber']
+
+    MLukman\DoctrineHelperBundle\EventSubscriber\AuditedEntitySubscriber:
+        calls:
+            - setSecurity: ['@?Symfony\Component\Security\Core\Security']
