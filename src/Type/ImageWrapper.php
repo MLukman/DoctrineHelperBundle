@@ -15,9 +15,13 @@ use function GuzzleHttp\json_encode;
 class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUploadedFileInterface
 {
     /**
+     * @var string The default format of the image (either png or jpeg) for newly created instances
+     */
+    static private string $defaultOutputFormat = 'png';
+
+    /**
      * @var string The format of the image (either png or jpeg)
      */
-    static public string $defaultOutputFormat = 'png';
     private ?string $ouputFormat = 'png';
 
     /**
@@ -33,13 +37,13 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
     /**
      * @var string The mime type of the image
      */
-    public ?string $mimetype = null;
+    public string $mimetype;
 
     /**
      *
      * @var string The base64 content of the image
      */
-    public ?string $base64 = null;
+    public string $base64 = '';
 
     /**
      *
@@ -180,6 +184,16 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
     {
         $this->base64 = $base64;
         $this->__unserialize($this->__serialize());
+    }
+
+    public static function getDefaultOutputFormat(): string
+    {
+        return self::$defaultOutputFormat;
+    }
+
+    public static function setDefaultOutputFormat(string $defaultOutputFormat): void
+    {
+        self::$defaultOutputFormat = $defaultOutputFormat;
     }
 
     public static function fromUploadedFile(UploadedFile $file): ?static
