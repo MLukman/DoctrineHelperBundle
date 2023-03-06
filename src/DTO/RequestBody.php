@@ -36,17 +36,25 @@ abstract class RequestBody
                 continue;
             }
 
-            $target_property = $target_reflection->hasProperty($property_name) ?
-                $target_reflection->getProperty($property_name) : null;
+            $target_property_type = $target_reflection->hasProperty($property_name)
+                    ? $target_reflection->getProperty($property_name)->getType()
+                    : null;
             $request_property_value = $request_property->getValue($this);
             $target_property_value = $propertyAccessor->getValue($target, $property_name);
-            if ($request_property_value instanceof RequestBody &&
-                !empty($target_property) &&
-                (new ReflectionClass($target_property->class))->implementsInterface(RequestBodyTargetInterface::class)) {
-                // if request property is RequestBody and target property is RequestBodyTargetInterface
-                $populatedChild = $this->populateChild($target, $property_name, $request_property_value, $target_property_value, null, $context);
-                $propertyAccessor->setValue($target, $property_name, $populatedChild);
-                $this->postSetPropertyValue($target, $property_name, $populatedChild);
+            if (!empty($target_property_type) &&
+                class_exists($target_property_type->getName()) &&
+                (new ReflectionClass($target_property_type->getName()))->implementsInterface(RequestBodyTargetInterface::class)) {
+                // if the target property implements RequestBodyTargetInterface
+                if (is_scalar($request_property_value)) {
+                    $convertedChild = $this->createRequestBodyTargetInterfaceFromScalarProperty($target, $property_name, $request_property_value, $target_property_type->getName(), $context);
+                    $propertyAccessor->setValue($target, $property_name, $convertedChild);
+                    $this->postSetPropertyValue($target, $property_name, $convertedChild);
+                } elseif ($request_property_value instanceof RequestBody) {
+                    // if request property is RequestBody and target property is RequestBodyTargetInterface
+                    $populatedChild = $this->populateChild($target, $property_name, $request_property_value, $target_property_value, null, $context);
+                    $propertyAccessor->setValue($target, $property_name, $populatedChild);
+                    $this->postSetPropertyValue($target, $property_name, $populatedChild);
+                }
             } elseif (is_iterable($request_property_value) && $target_property_value instanceof ArrayAccess) {
                 // if request property is iterable and target property allow array access
                 foreach ($request_property_value as $key => $val) {
@@ -104,5 +112,23 @@ abstract class RequestBody
         mixed $target_property_value, mixed $context = null)
     {
         
+    }
+
+    protected function createRequestBodyTargetInterfaceFromScalarProperty(
+        RequestBodyTargetInterface $target, string $property_name,
+        mixed $scalar_value, string $requestBodyTargetClass,
+        mixed $context = null): ?RequestBodyTargetInterface
+    {
+        return null;
+    }
+
+    /**
+     * Catch-all getter for missing/unknown properties that just returns null
+     * @param string $name
+     * @return null
+     */
+    public function __get($name)
+    {
+        return null;
     }
 }
