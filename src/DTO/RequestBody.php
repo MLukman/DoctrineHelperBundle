@@ -18,7 +18,7 @@ abstract class RequestBody
 
     // populate properties of entity with same names as $this properties
     public function populate(
-        RequestBodyTargetInterface $target, mixed $context = null): void
+        RequestBodyTargetInterface $target, mixed $context = null): RequestBodyTargetInterface
     {
         // prepare helpers
         $request_reflection = new ReflectionClass($this);
@@ -32,25 +32,38 @@ abstract class RequestBody
             // basic requirements to process each property
             if (!$request_property->isInitialized($this) ||
                 !$propertyAccessor->isReadable($this, $property_name) ||
+                !$target_reflection->hasProperty($property_name) ||
                 !$propertyAccessor->isWritable($target, $property_name)) {
                 continue;
             }
 
-            $target_property_type = $target_reflection->hasProperty($property_name)
-                    ? $target_reflection->getProperty($property_name)->getType()
-                    : null;
             $request_property_value = $request_property->getValue($this);
-            $target_property_value = $propertyAccessor->getValue($target, $property_name);
-            if (!empty($target_property_type) &&
-                class_exists($target_property_type->getName()) &&
-                (new ReflectionClass($target_property_type->getName()))->implementsInterface(RequestBodyTargetInterface::class)) {
+            $target_property_value = $target_reflection->getProperty($property_name)->isInitialized($target)
+                    ? $propertyAccessor->getValue($target, $property_name) : null;
+
+            // Find out the type(s) of the target property
+            $target_property_type = $target_reflection->getProperty($property_name)->getType();
+            $target_property_types = (
+                !$target_property_type ? [] : (
+                $target_property_type instanceof \ReflectionUnionType ?
+                $target_property_type->getTypes() : [$target_property_type]
+                ));
+            // Filter only target property type that implements RequestBodyTargetInterface
+            $target_property_requestbodytarget_types = array_filter($target_property_types, fn($type) =>
+                class_exists($type->getName()) &&
+                (new ReflectionClass($type->getName()))->implementsInterface(RequestBodyTargetInterface::class));
+
+            if (!empty($target_property_requestbodytarget_types)) {
                 // if the target property implements RequestBodyTargetInterface
                 if (is_scalar($request_property_value)) {
-                    $convertedChild = $this->createRequestBodyTargetInterfaceFromScalarProperty($target, $property_name, $request_property_value, $target_property_type->getName(), $context);
+                    // if request property is scalar
+                    $convertedChild = $this->createRequestBodyTargetInterfaceFromScalarProperty($target, $property_name, $request_property_value, $target_property_requestbodytarget_types[0]->getName(), $context);
                     $propertyAccessor->setValue($target, $property_name, $convertedChild);
                     $this->postSetPropertyValue($target, $property_name, $convertedChild);
-                } elseif ($request_property_value instanceof RequestBody) {
-                    // if request property is RequestBody and target property is RequestBodyTargetInterface
+                } elseif ($request_property_value instanceof RequestBody &&
+                    ($target_property_value instanceof RequestBodyTargetInterface
+                    || is_null($target_property_value))) {
+                    // if request property is RequestBody
                     $populatedChild = $this->populateChild($target, $property_name, $request_property_value, $target_property_value, null, $context);
                     $propertyAccessor->setValue($target, $property_name, $populatedChild);
                     $this->postSetPropertyValue($target, $property_name, $populatedChild);
@@ -75,10 +88,12 @@ abstract class RequestBody
                 $this->postSetPropertyValue($target, $property_name, $request_property_value, $context);
             }
         }
+
+        return $target;
     }
 
     /**
-     * Make $childProperty populate $entityChild. Used by populateTarget()
+     * Make $requestBodyChild populate $targetChild. Used by populateTarget()
      * Subclass should override this method to handle cases when $targetChild is null
      * @param $target the parent entity
      * @param $targetChildName the property name
@@ -91,7 +106,7 @@ abstract class RequestBody
     protected function populateChild(
         RequestBodyTargetInterface $target, string $targetChildName,
         RequestBody $requestBodyChild,
-        ?RequestBodyTargetInterface $targetChild = null, &$key = null,
+        ?RequestBodyTargetInterface $targetChild = null, ?string $key = null,
         mixed $context = null): ?RequestBodyTargetInterface
     {
         if ($targetChild) {

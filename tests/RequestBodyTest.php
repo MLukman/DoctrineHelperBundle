@@ -2,37 +2,32 @@
 
 namespace MLukman\DoctrineHelperBundle\Tests;
 
-use MLukman\DoctrineHelperBundle\DTO\RequestBody;
-use MLukman\DoctrineHelperBundle\DTO\RequestBodyTargetInterface;
 use MLukman\DoctrineHelperBundle\Tests\App\BaseTestCase;
+use MLukman\DoctrineHelperBundle\Tests\App\SampleRequestBody;
+use MLukman\DoctrineHelperBundle\Tests\App\SampleRequestBodyTarget;
 
 class RequestBodyTest extends BaseTestCase
 {
 
     public function testPopulate(): void
     {
-        $requestBodyClass = new class extends RequestBody {
-            public ?string $name;
-            public ?float $age;
-            public ?string $comment;
-        };
-
-        $requestBody = new $requestBodyClass;
+        $requestBody = new SampleRequestBody();
         $requestBody->name = 'Ahmad';
         $requestBody->age = 34.5;
         $requestBody->comment = 'This is test';
+        $requestBody->nested = new SampleRequestBody();
+        $requestBody->nested->name = 'Albab';
 
-        $requestBodyTargetClass = new class implements RequestBodyTargetInterface {
-            public ?string $name = null;
-            public ?float $age = null;
-            public ?string $comment = null;
-        };
-
-        $requestBodyTarget = new $requestBodyTargetClass;
+        $requestBodyTarget = new SampleRequestBodyTarget();
         $requestBody->populate($requestBodyTarget);
 
-        $this->assertEquals($requestBody->name, $requestBody->name);
-        $this->assertEquals($requestBody->age, $requestBody->age);
-        $this->assertEquals($requestBody->comment, $requestBody->comment);
+        print_r($requestBody);
+        print_r($requestBodyTarget);
+
+        $this->assertEquals($requestBody->name, $requestBodyTarget->name ?? null);
+        $this->assertEquals($requestBody->age, $requestBodyTarget->age ?? null);
+        $this->assertEquals($requestBody->comment, $requestBodyTarget->comment ?? null);
+        $this->assertEquals($requestBody->nested->name, $requestBodyTarget->nested->name
+                    ?? null);
     }
 }

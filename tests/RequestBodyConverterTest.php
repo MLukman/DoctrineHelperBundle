@@ -61,7 +61,7 @@ class RequestBodyConverterTest extends BaseTestCase
     public function testParse(): void
     {
         $converted = $this->converter->parse($this->source, SampleRequestBody::class);
-        print_r($converted);
+        //print_r($converted);
         $this->doAssertion($this->source, $converted);
     }
 
@@ -72,7 +72,7 @@ class RequestBodyConverterTest extends BaseTestCase
             if ($value === '') {
                 $this->assertEquals(false, isset($converted->$key));
             } else {
-                $this->assertObjectHasAttribute($key, $converted);
+                $this->assertEquals(true, isset($converted->$key));
                 $converted_value = $converted->$key;
                 if (is_array($value)) {
                     if (is_object($converted_value)) {
