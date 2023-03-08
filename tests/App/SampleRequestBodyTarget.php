@@ -2,6 +2,7 @@
 
 namespace MLukman\DoctrineHelperBundle\Tests\App;
 
+use Doctrine\Common\Collections\ArrayCollection;
 use MLukman\DoctrineHelperBundle\DTO\RequestBodyTargetInterface;
 
 class SampleRequestBodyTarget implements RequestBodyTargetInterface
@@ -10,11 +11,8 @@ class SampleRequestBodyTarget implements RequestBodyTargetInterface
     public ?float $age;
     public ?string $comment;
     public ?SampleRequestBodyTarget $nested;
+    public ?SampleRequestBodyTarget $fromScalar;
     public ?array $attributes;
-
-    /**
-     * @var SampleRequestBodyTarget[] $children
-     */
-    public ?array $children;
+    public ?ArrayCollection $children;
 
 }

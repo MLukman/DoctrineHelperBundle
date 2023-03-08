@@ -11,6 +11,7 @@ class SampleRequestBody extends RequestBody
     public ?float $age;
     public ?string $comment;
     public ?SampleRequestBody $nested;
+    public ?string $fromScalar;
     public ?array $attributes;
 
     /**
@@ -24,9 +25,22 @@ class SampleRequestBody extends RequestBody
                                      ?RequestBodyTargetInterface $targetChild = null,
                                      $key = null, $context = null): ?RequestBodyTargetInterface
     {
-        if ($targetChildName == 'nested' && !$targetChild) {
+        if (in_array($targetChildName, ['nested', 'children']) && !$targetChild) {
             return $requestBodyChild->populate(new SampleRequestBodyTarget(), $context);
         }
         return parent::populateChild($target, $targetChildName, $requestBodyChild, $targetChild, $key, $context);
+    }
+
+    protected function createRequestBodyTargetInterfaceFromScalarProperty(
+        RequestBodyTargetInterface $target, string $property_name,
+        mixed $scalar_value, string $requestBodyTargetClass,
+        mixed $context = null): ?RequestBodyTargetInterface
+    {
+        if ($requestBodyTargetClass == SampleRequestBodyTarget::class) {
+            $child = new SampleRequestBodyTarget();
+            $child->name = strval($scalar_value);
+            return $child;
+        }
+        return parent::createRequestBodyTargetInterfaceFromScalarProperty($target, $property_name, $scalar_value, $requestBodyTargetClass, $context);
     }
 }

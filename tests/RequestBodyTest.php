@@ -17,6 +17,10 @@ class RequestBodyTest extends BaseTestCase
         $requestBody->comment = 'This is test';
         $requestBody->nested = new SampleRequestBody();
         $requestBody->nested->name = 'Albab';
+        $child = new SampleRequestBody();
+        $child->name = 'Child';
+        $child->fromScalar = 'Scalar';
+        $requestBody->nested->children['child'] = $child;
 
         $requestBodyTarget = new SampleRequestBodyTarget();
         $requestBody->populate($requestBodyTarget);
@@ -24,10 +28,18 @@ class RequestBodyTest extends BaseTestCase
         print_r($requestBody);
         print_r($requestBodyTarget);
 
+        // assert primitive property types assignment
         $this->assertEquals($requestBody->name, $requestBodyTarget->name ?? null);
         $this->assertEquals($requestBody->age, $requestBodyTarget->age ?? null);
         $this->assertEquals($requestBody->comment, $requestBodyTarget->comment ?? null);
+        // assert RequestBody::populateChild() working
         $this->assertEquals($requestBody->nested->name, $requestBodyTarget->nested->name
+                    ?? null);
+        // assert RequestBody::populateChild() working for iterable property
+        $this->assertEquals($requestBody->nested->children['child']->name, $requestBodyTarget->nested->children['child']->name
+                    ?? null);
+        // assert RequestBody::createRequestBodyTargetInterfaceFromScalarProperty() working
+        $this->assertEquals($requestBody->nested->children['child']->fromScalar, $requestBodyTarget->nested->children['child']->fromScalar->name
                     ?? null);
     }
 }
