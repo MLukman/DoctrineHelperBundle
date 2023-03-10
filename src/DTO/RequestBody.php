@@ -93,7 +93,11 @@ abstract class RequestBody
                                 $context
                             );
                         }
-                        $target_property_value[$request_key] = $request_key_value;
+                        if (!\is_null($request_key_value)) {
+                            $target_property_value[$request_key] = $request_key_value;
+                        } elseif (isset($target_property_value[$request_key])) {
+                            unset($target_property_value[$request_key]);
+                        }
                     }
                 } elseif ($target_property_value instanceof ArrayAccess ||
                     (\class_exists($target_property_type_name) &&
@@ -116,7 +120,11 @@ abstract class RequestBody
                                 $request_key,
                                 $context);
                         }
-                        $target_property_value->offsetSet($request_key, $request_key_value);
+                        if (!\is_null($request_key_value)) {
+                            $target_property_value->offsetSet($request_key, $request_key_value);
+                        } elseif ($target_property_value->offsetExists($request_key)) {
+                            $target_property_value->offsetUnset($request_key);
+                        }
                     }
                 }
             } elseif (\is_string($request_property_value) && 'array' === $target_property_types[0]->getName()) { // source is string but target expects array

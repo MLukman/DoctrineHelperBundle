@@ -95,7 +95,7 @@ final class RequestBodyConverter implements ParamConverterInterface
         return true;
     }
 
-    public function parse(array $request, string $className): ?RequestBody
+    public function parse(array $request, string $className): mixed
     {
         // Filter out empty strings & empty objects
         $toDeserialize = static::array_filter_recursive($request, function ($val) {
