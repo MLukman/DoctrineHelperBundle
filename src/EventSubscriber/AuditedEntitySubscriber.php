@@ -23,10 +23,9 @@ class AuditedEntitySubscriber implements EventSubscriberInterface
     public function prePersist(LifecycleEventArgs $args)
     {
         if (($entity = $args->getObject()) && static::checkAuditedEntity($entity)) {
-            if (!empty($entity->getCreated())) {
-                return;
+            if (empty($entity->getCreated())) {
+                $entity->setCreated(new DateTime());
             }
-            $entity->setCreated(new DateTime());
             if ($this->security) {
                 $entity->setCreatedBy($this->security->getUser());
             }

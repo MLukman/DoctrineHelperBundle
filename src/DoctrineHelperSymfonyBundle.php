@@ -6,6 +6,7 @@ use MLukman\DoctrineHelperBundle\Query\DateFunction;
 use MLukman\DoctrineHelperBundle\Query\MatchAgainst;
 use MLukman\DoctrineHelperBundle\Type\FileType;
 use MLukman\DoctrineHelperBundle\Type\ImageType;
+use Ramsey\Uuid\Doctrine\UuidType;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
@@ -28,6 +29,7 @@ class DoctrineHelperSymfonyBundle extends AbstractBundle
                 'types' => [
                     'image' => ImageType::class,
                     'file' => FileType::class,
+                    'uuid' => UuidType::class,
                 ],
             ],
             'orm' => [
