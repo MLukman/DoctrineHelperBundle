@@ -38,7 +38,7 @@ class FileType extends BlobType
             return null;
         }
         $unpacked = \unpack('a255name/Qsize/a255mimetype/H*content', $value);
-        $filestore = new FileWrapper($unpacked['name'], $unpacked['size'], $unpacked['mimetype']);
+        $filestore = new FileWrapper(trim($unpacked['name']), $unpacked['size'], trim($unpacked['mimetype']));
         $filestore->setContent(hex2bin($unpacked['content']));
         return $filestore;
     }
