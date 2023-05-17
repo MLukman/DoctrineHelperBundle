@@ -4,6 +4,7 @@ namespace MLukman\DoctrineHelperBundle\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityRepository;
+use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
 
 abstract class DataStore
@@ -27,6 +28,11 @@ abstract class DataStore
     public function queryBuilder(string $entity, string $alias = 'e'): QueryBuilder
     {
         return $this->repo($entity)->createQueryBuilder($alias);
+    }
+
+    public function createQuery(string $dql): Query
+    {
+        return $this->em->createQuery($dql);
     }
 
     /**

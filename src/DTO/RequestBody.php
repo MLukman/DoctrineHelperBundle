@@ -57,81 +57,8 @@ abstract class RequestBody
                 $target_property_type instanceof ReflectionUnionType ?
                 $target_property_type->getTypes() : [$target_property_type]
                 ));
-            // Filter only target property type(s) that implement RequestBodyTargetInterface
-            $target_property_requestbodytarget_types = \array_filter($target_property_types, fn($type) =>
-                ($type_name = $type->getName()) &&
-                \class_exists($type_name) &&
-                (new ReflectionClass($type_name))->implementsInterface(RequestBodyTargetInterface::class));
 
-            if (!empty($target_property_requestbodytarget_types)) { // if the target property implements RequestBodyTargetInterface
-                if (\is_scalar($request_property_value)) { // if request property is scalar
-                    $type_index = 0;
-                    do { // iterate until found RequestBodyTargetInterface handled by the overriden method
-                        $target_property_value = $this->createRequestBodyTargetInterfaceFromScalarProperty($target, $property_name, $request_property_value, $target_property_requestbodytarget_types[$type_index]->getName(), $context);
-                        $type_index++;
-                    } while (\is_null($target_property_value) && $type_index < \count($target_property_requestbodytarget_types));
-                } elseif ($request_property_value instanceof RequestBody &&
-                    ($target_property_value instanceof RequestBodyTargetInterface
-                    || \is_null($target_property_value))) { // if request property is RequestBody
-                    $target_property_value = $this->populateChild($target, $property_name, $request_property_value, $target_property_value, null, $context);
-                }
-            } elseif (\is_iterable($request_property_value)) { // if request property is iterable and target property allow array access
-                $target_property_type_name = $target_property_types[0]->getName();
-                if (\is_array($target_property_value) || 'array' === $target_property_type_name) { // if target property is primitive array
-                    foreach ($request_property_value as $request_key => $request_key_value) {
-                        if ($request_key_value instanceof RequestBody) {
-                            $target_key_value = \is_array($target_property_value)
-                                    ? ($target_property_value[$request_key] ?? null)
-                                    : null;
-                            $request_key_value = $this->populateChild(
-                                $target,
-                                $property_name,
-                                $request_key_value,
-                                $target_key_value instanceof RequestBodyTargetInterface
-                                    ? $target_key_value : null,
-                                $request_key,
-                                $context
-                            );
-                        }
-                        if (!\is_null($request_key_value)) {
-                            $target_property_value[$request_key] = $request_key_value;
-                        } elseif (isset($target_property_value[$request_key])) {
-                            unset($target_property_value[$request_key]);
-                        }
-                    }
-                } elseif ($target_property_value instanceof ArrayAccess ||
-                    (\class_exists($target_property_type_name) &&
-                    ($target_property_type_refl = new ReflectionClass($target_property_type_name))
-                    && $target_property_type_refl->implementsInterface(ArrayAccess::class))) {
-
-                    // Instantiate null/undefined $target_property_value assuming the constructor does not require arguments
-                    if (!$target_property_value) {
-                        $target_property_value = $target_property_type_refl->newInstance();
-                    }
-                    foreach ($request_property_value as $request_key => $request_key_value) {
-                        if ($request_key_value instanceof RequestBody) {
-                            $target_key_value = $target_property_value->offsetGet($request_key);
-                            $request_key_value = $this->populateChild(
-                                $target,
-                                $property_name,
-                                $request_key_value,
-                                $target_key_value instanceof RequestBodyTargetInterface
-                                    ? $target_key_value : null,
-                                $request_key,
-                                $context);
-                        }
-                        if (!\is_null($request_key_value)) {
-                            $target_property_value->offsetSet($request_key, $request_key_value);
-                        } elseif ($target_property_value->offsetExists($request_key)) {
-                            $target_property_value->offsetUnset($request_key);
-                        }
-                    }
-                }
-            } elseif (\is_string($request_property_value) && 'array' === $target_property_types[0]->getName()) { // source is string but target expects array
-                $target_property_value = \explode(PHP_EOL, $request_property_value);
-            } else { // otherwise, just set the target property with same value as request property
-                $target_property_value = $request_property_value;
-            }
+            $target_property_value = $this->prepareTargetPropertyValue($target, $property_name, $request_property_value, $target_property_value, $target_property_types, $context);
 
             // Finally, set target property
             if (!\is_null($target_property_value) || $target_property_type->allowsNull()) {
@@ -141,6 +68,89 @@ abstract class RequestBody
         }
 
         return $target;
+    }
+
+    protected function prepareTargetPropertyValue(RequestBodyTargetInterface $target,
+                                                  string $property_name,
+                                                  mixed $request_property_value,
+                                                  mixed $target_property_value,
+                                                  array $target_property_types,
+                                                  mixed $context = null): mixed
+    {
+        // Filter only target property type(s) that implement RequestBodyTargetInterface
+        $target_property_requestbodytarget_types = \array_filter($target_property_types, fn($type) =>
+            ($type_name = $type->getName()) &&
+            \class_exists($type_name) &&
+            (new ReflectionClass($type_name))->implementsInterface(RequestBodyTargetInterface::class));
+        if (!empty($target_property_requestbodytarget_types)) { // if the target property implements RequestBodyTargetInterface
+            if (\is_scalar($request_property_value)) { // if request property is scalar
+                $type_index = 0;
+                do { // iterate until found RequestBodyTargetInterface handled by the overriden method
+                    $target_property_value = $this->createRequestBodyTargetInterfaceFromScalarProperty($target, $property_name, $request_property_value, $target_property_requestbodytarget_types[$type_index]->getName(), $context);
+                    $type_index++;
+                } while (\is_null($target_property_value) && $type_index < \count($target_property_requestbodytarget_types));
+            } elseif ($request_property_value instanceof RequestBody &&
+                ($target_property_value instanceof RequestBodyTargetInterface || \is_null($target_property_value))) { // if request property is RequestBody
+                $target_property_value = $this->populateChild($target, $property_name, $request_property_value, $target_property_value, null, $context);
+            }
+        } elseif (\is_iterable($request_property_value)) { // if request property is iterable and target property allow array access
+            $target_property_type_name = $target_property_types[0]->getName();
+            if (\is_array($target_property_value) || 'array' === $target_property_type_name) { // if target property is primitive array
+                foreach ($request_property_value as $request_key => $request_key_value) {
+                    if ($request_key_value instanceof RequestBody) {
+                        $target_key_value = \is_array($target_property_value) ? ($target_property_value[$request_key]
+                                ?? null) : null;
+                        $request_key_value = $this->populateChild(
+                            $target,
+                            $property_name,
+                            $request_key_value,
+                            $target_key_value instanceof RequestBodyTargetInterface
+                                ? $target_key_value : null,
+                            $request_key,
+                            $context
+                        );
+                    }
+                    if (!\is_null($request_key_value)) {
+                        $target_property_value[$request_key] = $request_key_value;
+                    } elseif (isset($target_property_value[$request_key])) {
+                        unset($target_property_value[$request_key]);
+                    }
+                }
+            } elseif ($target_property_value instanceof ArrayAccess ||
+                (\class_exists($target_property_type_name) &&
+                ($target_property_type_refl = new ReflectionClass($target_property_type_name))
+                && $target_property_type_refl->implementsInterface(ArrayAccess::class))) {
+
+                // Instantiate null/undefined $target_property_value assuming the constructor does not require arguments
+                if (!$target_property_value) {
+                    $target_property_value = $target_property_type_refl->newInstance();
+                }
+                foreach ($request_property_value as $request_key => $request_key_value) {
+                    if ($request_key_value instanceof RequestBody) {
+                        $target_key_value = $target_property_value->offsetGet($request_key);
+                        $request_key_value = $this->populateChild(
+                            $target,
+                            $property_name,
+                            $request_key_value,
+                            $target_key_value instanceof RequestBodyTargetInterface
+                                ? $target_key_value : null,
+                            $request_key,
+                            $context);
+                    }
+                    if (!\is_null($request_key_value)) {
+                        $target_property_value->offsetSet($request_key, $request_key_value);
+                    } elseif ($target_property_value->offsetExists($request_key)) {
+                        $target_property_value->offsetUnset($request_key);
+                    }
+                }
+            }
+        } elseif (\is_string($request_property_value) && 'array' === $target_property_types[0]->getName()) { // source is string but target expects array
+            $target_property_value = \array_map(fn($v) => trim($v), \explode("\n", $request_property_value));
+        } else { // otherwise, just set the target property with same value as request property
+            $target_property_value = $request_property_value;
+        }
+
+        return $target_property_value;
     }
 
     /**

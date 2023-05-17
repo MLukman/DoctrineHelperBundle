@@ -4,6 +4,7 @@ namespace MLukman\DoctrineHelperBundle\Trait;
 
 use Doctrine\ORM\Mapping as ORM;
 use Ramsey\Uuid\Doctrine\UuidGenerator;
+use Ramsey\Uuid\UuidInterface;
 
 #[ORM\HasLifecycleCallbacks]
 trait UuidEntityTrait
@@ -12,10 +13,10 @@ trait UuidEntityTrait
     #[ORM\Column(type: 'uuid')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
-    protected ?string $id = null;
+    protected ?UuidInterface $id = null;
 
     public function getId(): ?string
     {
-        return $this->id;
+        return $this->id ? $this->id->toString() : null;
     }
 }
