@@ -133,6 +133,25 @@ class Profile
 
 
 
-#### Column type 'image' & class ImageWrapper
+#### 3.1 Column type 'image' & class ImageWrapper
 
-#### Column type 'file' & class FileWrapper   
+TBC
+
+#### 3.2 Column type 'file' & class FileWrapper   
+
+TBC
+
+### 4. Record list filtration
+
+#### 4.1 Pagination
+
+TBC
+
+#### 4.2 Search
+
+TBC
+
+#### 4.3 Pre-defined Queries
+
+TBC
+
