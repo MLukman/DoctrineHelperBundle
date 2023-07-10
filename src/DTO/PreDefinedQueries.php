@@ -7,7 +7,7 @@ use Doctrine\ORM\QueryBuilder;
 class PreDefinedQueries
 {
     protected array $queries = [];
-    protected string $translationPrefix = '';
+    protected ?string $translationPrefix = null;
 
     public function __construct(protected string $name,
                                 protected string $baseUrl,
@@ -58,12 +58,12 @@ class PreDefinedQueries
         return isset($this->queries[$this->selectedId]) ? $this->selectedId : array_key_first($this->queries);
     }
 
-    public function getTranslationPrefix(): string
+    public function getTranslationPrefix(): ?string
     {
         return $this->translationPrefix;
     }
 
-    public function setTranslationPrefix(string $translationPrefix): self
+    public function setTranslationPrefix(?string $translationPrefix): self
     {
         $this->translationPrefix = $translationPrefix;
         return $this;

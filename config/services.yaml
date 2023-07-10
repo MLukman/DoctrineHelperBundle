@@ -9,8 +9,8 @@ services:
 
     MLukman\DoctrineHelperBundle\EventSubscriber\:
         resource: '../src/EventSubscriber/'
-        tags: ['doctrine.event_subscriber']
+        tags: ['doctrine.orm.entity_listener']
 
     MLukman\DoctrineHelperBundle\EventSubscriber\AuditedEntitySubscriber:
         calls:
-            - setSecurity: ['@?Symfony\Component\Security\Core\Security']
+            - setSecurity: ['@?Symfony\Bundle\SecurityBundle\Security']
