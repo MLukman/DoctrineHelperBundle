@@ -4,164 +4,120 @@ namespace MLukman\DoctrineHelperBundle\Service;
 
 use Exception;
 use MLukman\DoctrineHelperBundle\DTO\RequestBody;
-use MLukman\DoctrineHelperBundle\Type\FromUploadedFileInterface;
-use ReflectionClass;
-use ReflectionNamedType;
-use ReflectionUnionType;
-use Sensio\Bundle\FrameworkExtraBundle\Configuration\ParamConverter;
-use Sensio\Bundle\FrameworkExtraBundle\Request\ParamConverter\ParamConverterInterface;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
-use Symfony\Component\PropertyAccess\PropertyAccess;
-use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
-use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
+use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 
 /**
  * This ParamConverter will parse the request body, either in JSON format or form post format, and populate the properties of
  * the class specified as the type specified in controller route methods with the fields from the JSON/form.
  */
-final class RequestBodyConverter implements ParamConverterInterface
+final class RequestBodyConverter implements ValueResolverInterface
 {
-    protected $errors = [];
 
     public function __construct(private ObjectValidator $validator,
-                                private SerializerInterface $serializer)
+                                private RequestBodyConverterUtil $util)
     {
-        
+
     }
 
-    static function array_filter_recursive($input, $callback = null)
+    public function resolve(Request $request, ArgumentMetadata $argument): iterable
     {
-        foreach ($input as &$value) {
-            if (is_array($value)) {
-                $value = static::array_filter_recursive($value, $callback);
-            }
+        $processingDetails = [];
+
+        $type = $argument->getType();
+        $name = $argument->getName();
+
+        if (!is_subclass_of($type, RequestBody::class, true)) {
+            return [];
         }
-        return \array_filter($input, $callback);
+
+        $obj = $this->doResolve($request, $type, $name, $processingDetails);
+        $this->util->addParameterProcessing($type, $name, $processingDetails);
+
+        return [$obj];
     }
 
-    public function apply(Request $request, ParamConverter $configuration): bool
+    protected function doResolve(Request $request, string $type, string $name,
+                                 array &$processings): mixed
     {
         if (!in_array($request->getMethod(), ['POST', 'PUT'])) {
-            $request->attributes->set($configuration->getName(), null);
-            return false;
+            $processings[] = [
+                'phase' => 'request_method_check',
+                'result' => 0,
+                'error' => 'Request method is not POST or PUT',
+            ];
+            return null;
         }
+        $processings[] = [
+            'phase' => 'request_method_check',
+            'result' => 1,
+        ];
+
         try {
             $body = ($request->headers->get('Content-type') == 'application/json'
                     ? $request->getContent() : \json_encode($request->request->all()));
             if (!($body_array = \json_decode($body, true))) {
-                throw new BadRequestHttpException('Invalid inputs');
+                $processings[] = [
+                    'phase' => 'read_request',
+                    'result' => 0,
+                    'error' => 'Unable to decode JSON body',
+                ];
+                return null;
             }
-
-            $obj = $this->parse($body_array, $configuration->getClass());
-            if (($this->errors[$configuration->getName()] = $this->validator->validate($obj, true))) {
-                // not valid
-                $request->attributes->set($configuration->getName(), null);
-            } else {
-                // Special handling for file uploads
-                $this->handleFileUpload($request->files->all(), $obj);
-                $request->attributes->set($configuration->getName(), $obj);
-            }
-        } catch (Exception $e) {
-            $request->attributes->set($configuration->getName(), null);
-            $this->errors[$configuration->getName()] = [
-                'exception' => $e,
+            $processings[] = [
+                'phase' => 'read_request',
+                'result' => 1,
+                'details' => $body_array,
             ];
+
+            try {
+                $obj = $this->util->parse($body_array, $type);
+            } catch (Exception $e) {
+                $processings[] = [
+                    'phase' => 'parse_request',
+                    'result' => 0,
+                    'error' => 'RequestBody object failed validations',
+                    'details' => $e->getTrace(),
+                ];
+                return null;
+            }
+            $processings[] = [
+                'phase' => 'parse_request',
+                'result' => 1,
+                'details' => $obj,
+            ];
+
+            if (($errors = $this->validator->validate($obj, true))) {
+                // not valid
+                $this->util->addError($name, [
+                    'type' => 'validation_errors',
+                    'validation_errors' => $errors,
+                ]);
+                $processings[] = [
+                    'phase' => 'validate_request',
+                    'result' => 0,
+                    'error' => 'RequestBody object failed validations',
+                    'details' => $errors,
+                ];
+                return null;
+            }
+            $processings[] = [
+                'phase' => 'validate_request',
+                'result' => 1,
+            ];
+
+            // Special handling for file uploads
+            $this->util->handleFileUpload($request->files->all(), $obj);
+
+            // finally return the object
+            return $obj;
+        } catch (Exception $e) {
+            $this->util->addError($name, [
+                'type' => 'exception',
+                'exception' => $e,
+            ]);
         }
-        return true;
-    }
-
-    public function parse(array $request, string $className): mixed
-    {
-        // Filter out empty strings & empty objects
-        $toDeserialize = static::array_filter_recursive($request, function ($val) {
-                return !($val === "");
-            });
-        // Actual deserialization is handled by Symfony serializer
-        /** @var RequestBody $obj */
-        return $this->serializer->deserialize(\json_encode($toDeserialize), $className, 'json', [
-                ObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true,
-                ObjectNormalizer::SKIP_NULL_VALUES => true,
-        ]);
-    }
-
-    protected function handleFileUpload(array $files, &$target)
-    {
-        // if $target is array then recurse
-        if (is_array($target)) {
-            foreach ($target as $tkey => &$tval) {
-                if (!isset($files[$tkey])) {
-                    continue;
-                }
-                $this->handleFileUpload($files[$tkey], $tval);
-            }
-            return;
-        }
-
-        // Property accessor to set target properties
-        $propertyAccessor = PropertyAccess::createPropertyAccessor();
-
-        // iterate over all uploaded files
-        $targetReflection = new ReflectionClass($target);
-        foreach ($files as $fkey => $fval) {
-            if (!$targetReflection->hasProperty($fkey)) {
-                // $target has no matching key so skip
-                continue;
-            }
-            if (is_array($fval)) {
-                // turn out the iterated item is a nested array, recurse
-                $this->handleFileUpload($fval, $target->{$fkey});
-                continue;
-            }
-            if (!($fval instanceof UploadedFile)) {
-                // for whatever reason it is not an uploaded file (super weird ...)
-                continue;
-            }
-
-            // collect the type(s) supported by the target property
-            $ftype = $targetReflection->getProperty($fkey)->getType();
-            $types = ($ftype instanceof ReflectionNamedType ? [$ftype->getName()]
-                    : ($ftype instanceof ReflectionUnionType ? array_reduce($ftype->getTypes(),
-                    function ($carry, ReflectionNamedType $type) {
-                        return $carry + [$type->getName()];
-                    }, []) : []));
-
-            // check & process whether any of the type(s) implements FromUploadedFileInterface
-            foreach ($types as $type) {
-                $typeReflection = new ReflectionClass($type);
-                if ($typeReflection->implementsInterface(FromUploadedFileInterface::class)) {
-                    $fromUploadedFile = call_user_func([$type, 'fromUploadedFile'], $fval);
-                    $propertyAccessor->setValue($target, $fkey, $fromUploadedFile);
-                    continue 2;
-                }
-            }
-
-            // if UploadedFile is supported
-            if (in_array(UploadedFile::class, $types)) {
-                $propertyAccessor->setValue($target, $fkey, $fval);
-                continue;
-            }
-
-            // last resort
-            if (empty($types) || in_array('string', $types)) {
-                $propertyAccessor->setValue($target, $fkey, $fval->getContent());
-            }
-        }
-    }
-
-    public function supports(ParamConverter $configuration): bool
-    {
-        $class = $configuration->getClass();
-        if (!is_string($class)) {
-            return false;
-        }
-
-        return in_array(RequestBody::class, class_parents($class));
-    }
-
-    public function getErrorsFor(string $parameterName): array
-    {
-        return $this->errors[$parameterName] ?? [];
+        return null;
     }
 }

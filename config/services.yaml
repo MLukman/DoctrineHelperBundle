@@ -14,3 +14,7 @@ services:
     MLukman\DoctrineHelperBundle\EventSubscriber\AuditedEntitySubscriber:
         calls:
             - setSecurity: ['@?Symfony\Bundle\SecurityBundle\Security']
+
+    MLukman\DoctrineHelperBundle\DataCollector\:
+        resource: '../src/DataCollector/'
+        tags: ['data_collector']

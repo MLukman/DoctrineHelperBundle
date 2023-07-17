@@ -3,32 +3,33 @@
 namespace MLukman\DoctrineHelperBundle\Service;
 
 use MLukman\DoctrineHelperBundle\DTO\Paginator;
-use Sensio\Bundle\FrameworkExtraBundle\Configuration\ParamConverter;
-use Sensio\Bundle\FrameworkExtraBundle\Request\ParamConverter\ParamConverterInterface;
+use ReflectionClass;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
+use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 
-final class PaginatorConverter implements ParamConverterInterface
+final class PaginatorConverter implements ValueResolverInterface
 {
+    protected array $paginators = [];
 
-    public function apply(Request $request, ParamConverter $configuration): bool
+    public function resolve(Request $request, ArgumentMetadata $argument): iterable
     {
-        $request->attributes->set($configuration->getName(),
-            $this->createPaginator($request->query->all()));
-        return true;
-    }
-
-    public function createPaginator(array $queries): Paginator
-    {
-        list($page, $limit) = [max(1, $queries['page'] ?? 1), $queries['limit'] ?? 0];
-        return new Paginator($page, $limit);
-    }
-
-    public function supports(ParamConverter $configuration): bool
-    {
-        $class = $configuration->getClass();
-        if (!is_string($class)) {
-            return false;
+        if (!($argumentType = $argument->getType()) ||
+            !is_a($argumentType, Paginator::class, true)) {
+            return [];
         }
-        return $class == Paginator::class;
+
+        return [
+            $this->createPaginator($argumentType, $request->query->all())
+        ];
+    }
+
+    public function createPaginator(string $class, array $queries): Paginator
+    {
+        if (!isset($this->paginator[$class])) {
+            $this->paginators[$class] = (new ReflectionClass($class))
+                ->newInstance(max(1, $queries['page'] ?? 1), $queries['limit'] ?? 0);
+        }
+        return $this->paginators[$class];
     }
 }

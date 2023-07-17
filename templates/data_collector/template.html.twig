@@ -1,0 +1,64 @@
+{% extends '@WebProfiler/Profiler/layout.html.twig' %}
+
+{% block head %}
+    {{ parent() }}
+    {# Optional. Here you can link to or define your own CSS and JS contents. #}
+    {# Use {{ parent() }} to extend the default styles instead of overriding them. #}
+{% endblock %}
+
+{% block menu %}
+    {# This left-hand menu appears when using the full-screen profiler. #}
+    <span class="label label-status-none {{ collector.processings|length == 0 ? 'disabled':'' }}">
+        <span class="icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon-tabler-transform" width="24" height="24" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                <path d="M3 6a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />
+                <path d="M21 11v-3a2 2 0 0 0 -2 -2h-6l3 3m0 -6l-3 3" />
+                <path d="M3 13v3a2 2 0 0 0 2 2h6l-3 -3m0 6l3 -3" />
+                <path d="M15 18a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />
+            </svg>
+        </span>
+        <strong>Request Conversions</strong>
+        {% if collector.processings|length > 0 %}
+            <span class="count">
+                <span>{{ collector.processings|length }}</span>
+            </span
+        {% endif %}
+    </span>
+{% endblock %}
+
+{% block panel %}
+    {# Optional, for showing the most details. #}
+    <h2>Request Body Conversions</h2>
+
+    {% for processing in collector.processings %}
+        <h3>{{ processing.class }} <code>${{ processing.name }}</code></h3>
+
+        <table>
+            <tr>
+                <th>Phase</th>
+                <th>Result</th>
+                <th>Error</th>
+                <th>Details</th>
+            </tr>
+            {% for detail in processing.details %}
+                <tr>
+                    <td>{{ detail.phase }}</td>
+                    <td>{{ detail.result ? 'Success':'Failure' }}</td>
+                    <td>{{ detail.error|default('-') }}</td>
+                    <td>
+                        {% if detail.details is defined %}
+                            <pre>{{ detail.details|json_encode(constant('JSON_PRETTY_PRINT')) }}</pre>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <div class="empty empty-panel">
+            <p>No request body conversions were required for this request.</p>
+        </div>
+    {% endfor %}
+{% endblock %}

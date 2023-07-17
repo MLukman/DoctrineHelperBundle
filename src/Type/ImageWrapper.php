@@ -2,7 +2,6 @@
 
 namespace MLukman\DoctrineHelperBundle\Type;
 
-use Imagine\Gd\Imagine;
 use Imagine\Image\AbstractImagine;
 use Imagine\Image\Box;
 use Imagine\Image\ImageInterface;
@@ -28,6 +27,7 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
      * @var AbstractImagine
      */
     private ?AbstractImagine $_imagine = null;
+    private string $engineType = 'gd';
 
     /**
      * @var ImageInterface $image
@@ -58,8 +58,10 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
      * @param type $outputFormat
      */
     public function __construct(mixed $image = null,
-                                ?string $outputFormat = null)
+                                ?string $outputFormat = null,
+                                string $engineType = 'gd')
     {
+        $this->engineType = $engineType;
         if (is_resource($image)) {
             $this->loadResource($image);
         } elseif (is_string($image) && file_exists($image)) {
@@ -70,10 +72,19 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
         $this->ouputFormat = $outputFormat ?: self::$defaultOutputFormat;
     }
 
-    public function engine(): Imagine
+    protected function engine(): AbstractImagine
     {
         if (!$this->_imagine) {
-            $this->_imagine = new Imagine();
+            switch (strtolower($this->engineType)) {
+                case 'gmagick':
+                    $this->_imagine = new \Imagine\Gmagick\Imagine();
+                    break;
+                case 'imagick':
+                    $this->_imagine = new \Imagine\Imagick\Imagine();
+                    break;
+                default:
+                    $this->_imagine = new \Imagine\Gd\Imagine();
+            }
         }
         return $this->_imagine;
     }
@@ -111,6 +122,11 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
             return null;
         }
         return $this->_image->get($format ?: $this->ouputFormat);
+    }
+
+    public function getImage(): ?ImageInterface
+    {
+        return $this->_image;
     }
 
     public function resize(int $maxWidth = 0, int $maxHeight = 0)

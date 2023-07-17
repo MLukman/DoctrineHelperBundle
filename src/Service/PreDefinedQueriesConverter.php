@@ -3,26 +3,26 @@
 namespace MLukman\DoctrineHelperBundle\Service;
 
 use MLukman\DoctrineHelperBundle\DTO\PreDefinedQueries;
-use Sensio\Bundle\FrameworkExtraBundle\Configuration\ParamConverter;
-use Sensio\Bundle\FrameworkExtraBundle\Request\ParamConverter\ParamConverterInterface;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
+use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 
-final class PreDefinedQueriesConverter implements ParamConverterInterface
+final class PreDefinedQueriesConverter implements ValueResolverInterface
 {
+    protected array $pdqs = [];
 
-    public function apply(Request $request, ParamConverter $configuration): bool
+    public function resolve(Request $request, ArgumentMetadata $argument): iterable
     {
-        $name = $configuration->getName();
-        $request->attributes->set($name, new PreDefinedQueries($name, $request->getRequestUri(), $request->query->get($name, null)));
-        return true;
-    }
-
-    public function supports(ParamConverter $configuration): bool
-    {
-        $class = $configuration->getClass();
-        if (!is_string($class)) {
-            return false;
+        if (!($argumentType = $argument->getType()) ||
+            !is_a($argumentType, PreDefinedQueries::class, true)) {
+            return [];
         }
-        return $class === PreDefinedQueries::class;
+
+        $name = $argument->getName();
+        if (!isset($this->pdqs[$name])) {
+            $this->pdqs[$name] = new PreDefinedQueries($name, $request->getRequestUri(), $request->query->get($name, null));
+        }
+
+        return [$this->pdqs[$name]];
     }
 }

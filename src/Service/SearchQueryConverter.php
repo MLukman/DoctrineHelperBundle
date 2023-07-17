@@ -3,26 +3,22 @@
 namespace MLukman\DoctrineHelperBundle\Service;
 
 use MLukman\DoctrineHelperBundle\DTO\SearchQuery;
-use Sensio\Bundle\FrameworkExtraBundle\Configuration\ParamConverter;
-use Sensio\Bundle\FrameworkExtraBundle\Request\ParamConverter\ParamConverterInterface;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
+use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 
-final class SearchQueryConverter implements ParamConverterInterface
+final class SearchQueryConverter implements ValueResolverInterface
 {
 
-    public function apply(Request $request, ParamConverter $configuration): bool
+    public function resolve(Request $request, ArgumentMetadata $argument): iterable
     {
-        $name = $configuration->getName();
-        $request->attributes->set($name, new SearchQuery($name, $request->query->get($name, null)));
-        return true;
-    }
+        $type = $argument->getType();
+        $name = $argument->getName();
 
-    public function supports(ParamConverter $configuration): bool
-    {
-        $class = $configuration->getClass();
-        if (!is_string($class)) {
-            return false;
+        if (!is_a($type, SearchQuery::class, true)) {
+            return [];
         }
-        return $class === SearchQuery::class;
+
+        return [new SearchQuery($name, $request->query->get($name, null))];
     }
 }

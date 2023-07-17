@@ -6,16 +6,16 @@ use DateTime;
 use Doctrine\Common\Collections\Criteria;
 use Doctrine\Common\Collections\Expr\Comparison;
 use MLukman\DoctrineHelperBundle\DTO\ResponseFilters;
-use Sensio\Bundle\FrameworkExtraBundle\Configuration\ParamConverter;
-use Sensio\Bundle\FrameworkExtraBundle\Request\ParamConverter\ParamConverterInterface;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
+use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 
 /**
- * This ParamConverter will parse the JSON specified in the query string field with the same name as
+ * This ValueResolver will parse the JSON specified in the query string field with the same name as
  * the controller router method's function parameter.
  * It will then create and populate an instance of ResponseFilters.
  */
-final class ResponseFiltersConverter implements ParamConverterInterface
+final class ResponseFiltersConverter implements ValueResolverInterface
 {
     CONST OPS = [
         '=' => Comparison::EQ,
@@ -27,6 +27,25 @@ final class ResponseFiltersConverter implements ParamConverterInterface
         'IN' => Comparison::IN,
         'NOT IN' => Comparison::NIN,
     ];
+
+    public function resolve(Request $request, ArgumentMetadata $argument): iterable
+    {
+        $type = $argument->getType();
+        $name = $argument->getName();
+
+        if (!is_a($type, ResponseFilters::class, true)) {
+            return [];
+        }
+
+        $queries = $request->query->all();
+        $filters = $queries[$name] ?? null;
+        if (!empty($filters) && !is_array($filters)) {
+            $filters = \json_decode($filters, true);
+        }
+        return [new ResponseFilters(
+                self::makeCriteriaFromArray(is_array($filters) ? $filters : [])
+        )];
+    }
 
     static public function makeCriteriaFromArray(array $criterias): ?Criteria
     {
@@ -55,30 +74,5 @@ final class ResponseFiltersConverter implements ParamConverterInterface
             return $date;
         }
         return $value;
-    }
-
-    public function apply(Request $request, ParamConverter $configuration): bool
-    {
-        $queries = $request->query->all();
-        $filters = $queries[$configuration->getName()] ?? null;
-        if (!empty($filters) && !is_array($filters)) {
-            $filters = \json_decode($filters, true);
-        }
-        $request->attributes->set(
-            $configuration->getName(),
-            new ResponseFilters(
-                self::makeCriteriaFromArray(is_array($filters) ? $filters : [])
-            )
-        );
-        return true;
-    }
-
-    public function supports(ParamConverter $configuration): bool
-    {
-        $class = $configuration->getClass();
-        if (!is_string($class)) {
-            return false;
-        }
-        return $class == ResponseFilters::class;
     }
 }
