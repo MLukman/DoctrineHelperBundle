@@ -25,9 +25,6 @@ class RequestBodyTest extends BaseTestCase
         $requestBodyTarget = new SampleRequestBodyTarget();
         $requestBody->populate($requestBodyTarget);
 
-        print_r($requestBody);
-        print_r($requestBodyTarget);
-
         // assert primitive property types assignment
         $this->assertEquals($requestBody->name, $requestBodyTarget->name ?? null);
         $this->assertEquals($requestBody->age, $requestBodyTarget->age ?? null);

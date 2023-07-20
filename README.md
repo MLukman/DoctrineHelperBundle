@@ -338,10 +338,10 @@ Finally, prepare the UI elements that provides a list of filter options which na
     {% for id,url in filter.urls %}
         <li>
             <a href="{{ url }}">
-            	{% if id == filter.selectedId %}
-					<strong>{{ id }}</strong>
+                {% if id == filter.selectedId %}
+                    <strong>{{ id }}</strong>
                 {% else %}
-	                {{ id }}
+                    {{ id }}
                 {% endif %}
             </a>
         </li>

@@ -5,8 +5,8 @@ namespace MLukman\DoctrineHelperBundle\Tests;
 use MLukman\DoctrineHelperBundle\Service\RequestBodyConverter;
 use MLukman\DoctrineHelperBundle\Tests\App\BaseTestCase;
 use MLukman\DoctrineHelperBundle\Tests\App\SampleRequestBody;
-use Sensio\Bundle\FrameworkExtraBundle\Configuration\ParamConverter;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 
 class RequestBodyConverterTest extends BaseTestCase
 {
@@ -45,23 +45,19 @@ class RequestBodyConverterTest extends BaseTestCase
         $this->source = \json_decode($json, true);
     }
 
-    public function testApply(): void
+    public function testResolve(): void
     {
         $request = new Request(request: $this->source);
         $request->setMethod('POST');
-        $paramConfig = new ParamConverter();
-        $paramConfig->setClass(SampleRequestBody::class);
-        $paramConfig->setName('submission');
+        $paramConfig = new ArgumentMetadata('submission', SampleRequestBody::class, false, false, null);
 
-        $this->converter->apply($request, $paramConfig);
-        $converted = $request->attributes->get('submission');
+        list($converted) = $this->converter->resolve($request, $paramConfig);
         $this->doAssertion($this->source, $converted);
     }
 
     public function testParse(): void
     {
-        $converted = $this->converter->parse($this->source, SampleRequestBody::class);
-        //print_r($converted);
+        $converted = $this->converter->getUtil()->parse($this->source, SampleRequestBody::class);
         $this->doAssertion($this->source, $converted);
     }
 

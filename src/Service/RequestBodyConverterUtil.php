@@ -35,24 +35,25 @@ class RequestBodyConverterUtil
                 return !($val === "");
             });
         // Actual deserialization is handled by Symfony serializer
-        /** @var RequestBody $obj */
         return $this->serializer->deserialize(\json_encode($toDeserialize), $className, 'json', [
                 ObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true,
                 ObjectNormalizer::SKIP_NULL_VALUES => true,
         ]);
     }
 
-    public function handleFileUpload(array $files, &$target)
+    public function handleFileUpload(array $files, &$target): array
     {
+        $details = [];
+
         // if $target is array then recurse
         if (is_array($target)) {
             foreach ($target as $tkey => &$tval) {
                 if (!isset($files[$tkey])) {
                     continue;
                 }
-                $this->handleFileUpload($files[$tkey], $tval);
+                $details[$tkey] = $this->handleFileUpload($files[$tkey], $tval);
             }
-            return;
+            return $details;
         }
 
         // Property accessor to set target properties
@@ -63,15 +64,17 @@ class RequestBodyConverterUtil
         foreach ($files as $fkey => $fval) {
             if (!$targetReflection->hasProperty($fkey)) {
                 // $target has no matching key so skip
+                $details[$fkey] = "Skipped: target has no matching key";
                 continue;
             }
             if (is_array($fval)) {
                 // turn out the iterated item is a nested array, recurse
-                $this->handleFileUpload($fval, $target->{$fkey});
+                $details[$fkey] = $this->handleFileUpload($fval, $target->{$fkey});
                 continue;
             }
             if (!($fval instanceof UploadedFile)) {
                 // for whatever reason it is not an uploaded file (super weird ...)
+                $details[$fkey] = "Skipped: is not instance of UploadedFile class";
                 continue;
             }
 
@@ -89,6 +92,7 @@ class RequestBodyConverterUtil
                 if ($typeReflection->implementsInterface(FromUploadedFileInterface::class)) {
                     $fromUploadedFile = call_user_func([$type, 'fromUploadedFile'], $fval);
                     $propertyAccessor->setValue($target, $fkey, $fromUploadedFile);
+                    $details[$fkey] = "File parsed as ".\get_class($fromUploadedFile);
                     continue 2;
                 }
             }
@@ -96,14 +100,18 @@ class RequestBodyConverterUtil
             // if UploadedFile is supported
             if (in_array(UploadedFile::class, $types)) {
                 $propertyAccessor->setValue($target, $fkey, $fval);
+                $details[$fkey] = "File parsed as ".\get_class($fval);
                 continue;
             }
 
             // last resort
             if (empty($types) || in_array('string', $types)) {
                 $propertyAccessor->setValue($target, $fkey, $fval->getContent());
+                $details[$fkey] = "File parsed as string";
             }
         }
+
+        return $details;
     }
 
     static function array_filter_recursive($input, $callback = null)

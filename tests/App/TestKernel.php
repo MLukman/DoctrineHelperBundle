@@ -5,12 +5,12 @@ namespace MLukman\DoctrineHelperBundle\Tests\App;
 use MLukman\DoctrineHelperBundle\DoctrineHelperSymfonyBundle;
 use MLukman\DoctrineHelperBundle\Service\ObjectValidator;
 use MLukman\DoctrineHelperBundle\Service\PaginatorConverter;
+use MLukman\DoctrineHelperBundle\Service\PreDefinedQueriesConverter;
 use MLukman\DoctrineHelperBundle\Service\RequestBodyConverter;
 use MLukman\DoctrineHelperBundle\Service\ResponseFiltersConverter;
 use MLukman\DoctrineHelperBundle\Service\SearchQueryConverter;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Component\Config\Loader\LoaderInterface;
-use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\HttpKernel\Kernel;
@@ -18,9 +18,10 @@ use Symfony\Component\HttpKernel\Kernel;
 class TestKernel extends Kernel
 {
     protected array $services = [
-        RequestBodyConverter::class,
-        PaginatorConverter::class,
         ObjectValidator::class,
+        PaginatorConverter::class,
+        PreDefinedQueriesConverter::class,
+        RequestBodyConverter::class,
         ResponseFiltersConverter::class,
         SearchQueryConverter::class,
     ];

@@ -5,25 +5,24 @@ namespace MLukman\DoctrineHelperBundle\Tests;
 use MLukman\DoctrineHelperBundle\DTO\Paginator;
 use MLukman\DoctrineHelperBundle\Service\PaginatorConverter;
 use MLukman\DoctrineHelperBundle\Tests\App\BaseTestCase;
-use Sensio\Bundle\FrameworkExtraBundle\Configuration\ParamConverter;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 
 class PaginatorConverterTest extends BaseTestCase
 {
 
-    public function testApply(): void
+    public function testResolve(): void
     {
         $request = new Request(['page' => 2, 'limit' => 100]);
-        $paramConfig = new ParamConverter();
-        $paramConfig->setName('paginator');
+        $paramConfig = new ArgumentMetadata('paginator', Paginator::class, false, false, null);
 
         /** $var PaginatorConverter converter */
         $converter = $this->service(PaginatorConverter::class);
-        $converter->apply($request, $paramConfig);
+        list($paginator) = $converter->resolve($request, $paramConfig);
 
-        $this->assertNotEmpty($request->attributes->get('paginator'));
-        $this->assertEquals(Paginator::class, get_class($request->attributes->get('paginator')));
-        $this->assertEquals(2, $request->attributes->get('paginator')->getPage());
-        $this->assertEquals(100, $request->attributes->get('paginator')->getLimit());
+        $this->assertNotEmpty($paginator);
+        $this->assertEquals(Paginator::class, get_class($paginator));
+        $this->assertEquals(2, $paginator->getPage());
+        $this->assertEquals(100, $paginator->getLimit());
     }
 }

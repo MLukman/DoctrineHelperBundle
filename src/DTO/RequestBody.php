@@ -47,7 +47,7 @@ abstract class RequestBody
 
             // Get both request & target properties' original values
             $request_property_value = $request_property->getValue($this);
-            $target_property_value = $target_reflection->getProperty($property_name)->isInitialized($target)
+            $target_property_value_orig = $target_reflection->getProperty($property_name)->isInitialized($target)
                     ? $propertyAccessor->getValue($target, $property_name) : null;
 
             // Find out the type(s) of the target property
@@ -58,7 +58,7 @@ abstract class RequestBody
                 $target_property_type->getTypes() : [$target_property_type]
                 ));
 
-            $target_property_value = $this->prepareTargetPropertyValue($target, $property_name, $request_property_value, $target_property_value, $target_property_types, $context);
+            $target_property_value = $this->prepareTargetPropertyValue($target, $property_name, $request_property_value, $target_property_value_orig, $target_property_types, $context);
 
             // Finally, set target property
             if (!\is_null($target_property_value) || $target_property_type->allowsNull()) {

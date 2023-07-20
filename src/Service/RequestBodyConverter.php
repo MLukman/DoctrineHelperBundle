@@ -9,7 +9,7 @@ use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 
 /**
- * This ParamConverter will parse the request body, either in JSON format or form post format, and populate the properties of
+ * This ValueResolver will parse the request body, either in JSON format or form post format, and populate the properties of
  * the class specified as the type specified in controller route methods with the fields from the JSON/form.
  */
 final class RequestBodyConverter implements ValueResolverInterface
@@ -19,6 +19,11 @@ final class RequestBodyConverter implements ValueResolverInterface
                                 private RequestBodyConverterUtil $util)
     {
 
+    }
+
+    public function getUtil(): RequestBodyConverterUtil
+    {
+        return $this->util;
     }
 
     public function resolve(Request $request, ArgumentMetadata $argument): iterable
@@ -108,7 +113,12 @@ final class RequestBodyConverter implements ValueResolverInterface
             ];
 
             // Special handling for file uploads
-            $this->util->handleFileUpload($request->files->all(), $obj);
+            $details = $this->util->handleFileUpload($request->files->all(), $obj);
+            $processings[] = [
+                'phase' => 'handle_file_uploads',
+                'result' => 1,
+                'details' => $details,
+            ];
 
             // finally return the object
             return $obj;

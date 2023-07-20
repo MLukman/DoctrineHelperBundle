@@ -15,6 +15,7 @@ services:
         calls:
             - setSecurity: ['@?Symfony\Bundle\SecurityBundle\Security']
 
-    MLukman\DoctrineHelperBundle\DataCollector\:
-        resource: '../src/DataCollector/'
-        tags: ['data_collector']
+    MLukman\DoctrineHelperBundle\DataCollector\RequestBodyConverterCollector:
+        tags:
+            - name: data_collector
+              id: 'doctrine_helper.request_body_conversions'

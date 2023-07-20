@@ -29,6 +29,11 @@ class RequestBodyConverterCollector extends AbstractDataCollector
         return $this->data['processings'];
     }
 
+    public function getName(): string
+    {
+        return 'doctrine_helper.request_body_conversions';
+    }
+
     public static function getTemplate(): ?string
     {
         return '@DoctrineHelperSymfony/data_collector/template.html.twig';
