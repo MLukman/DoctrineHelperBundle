@@ -49,6 +49,29 @@ final class SearchQuery
         }
     }
 
+    public function applyBetweenTwoColumns(QueryBuilder $qb,
+                                           string $startColumn,
+                                           string $endColumn): QueryBuilder
+    {
+        if ($this->keyword === "" | $this->keyword === null) {
+            return $qb;
+        }
+        return $qb
+                ->andWhere(
+                    $qb->expr()->orX(
+                        $qb->expr()->andX(
+                            $qb->expr()->lte($startColumn, ':keyword'),
+                            $qb->expr()->gte($endColumn, ':keyword')
+                        ),
+                        $qb->expr()->andX(
+                            $qb->expr()->gte($startColumn, ':keyword'),
+                            $qb->expr()->lte($endColumn, ':keyword')
+                        )
+                    )
+                )
+                ->setParameter('keyword', $this->keyword);
+    }
+
     public function getName(): string
     {
         return $this->name;

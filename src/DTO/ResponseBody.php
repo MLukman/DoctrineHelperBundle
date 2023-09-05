@@ -2,12 +2,14 @@
 
 namespace MLukman\DoctrineHelperBundle\DTO;
 
-use IteratorAggregate;
 use ReflectionClass;
-use ReflectionProperty;
 use RuntimeException;
 use Symfony\Component\PropertyAccess\Exception\InvalidArgumentException;
 use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
+use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
+use Symfony\Component\PropertyInfo\Type;
 
 /**
  * This class is the base class for objects that will be serialized into response bodies.
@@ -19,20 +21,43 @@ abstract class ResponseBody
 {
 
     static public function createResponseFromSource(ResponseBodySourceInterface $source,
-                                                    array &$processed = [],
-                                                    ?string $responseBodyClass = null): ?ResponseBody
+                                                    ?string $responseBodyClass = null,
+                                                    array &$processedSources = array()): ?ResponseBody
     {
-        $entity_class = get_class($source);
-        if (in_array($entity_class, $processed)) {
-            // special trick to prevent recursion by throwing exception to the calling code to skip populating the property
-            throw new RuntimeException('Class has already been processed');
+        static $propertyAccessor = null;
+        if ($propertyAccessor === null) {
+            $propertyAccessor = PropertyAccess::createPropertyAccessorBuilder()->disableExceptionOnInvalidPropertyPath()->getPropertyAccessor();
         }
-        $processed[] = $entity_class;
+        static $propertyInfoExtractor = null;
+        if ($propertyInfoExtractor === null) {
+            $phpDocExtractor = new PhpDocExtractor();
+            $reflectionExtractor = new ReflectionExtractor();
+            $propertyInfoExtractor = new PropertyInfoExtractor(
+                listExtractors: [$reflectionExtractor],
+                typeExtractors: [$phpDocExtractor, $reflectionExtractor],
+                descriptionExtractors: [$phpDocExtractor],
+                accessExtractors: [$reflectionExtractor],
+                initializableExtractors: [$reflectionExtractor]
+            );
+        }
+
+        // Sanity check whether or not this source is convertable
         $response = $responseBodyClass ? new $responseBodyClass : $source->createResponseBody();
         if (!$response) {
             return null;
+        } elseif (!is_subclass_of($response, ResponseBody::class)) {
+            throw new RuntimeException("ResponseBody conversion error: $responseBodyClass is not a subclass of ResponseBody");
         }
-        $propertyAccessor = PropertyAccess::createPropertyAccessorBuilder()->disableExceptionOnInvalidPropertyPath()->getPropertyAccessor();
+
+        // To prevent infinite recursion, we store into array all converted properties including those of nested objects
+        $processedKey = sprintf("%s->%s", spl_object_hash($source), get_class($response));
+        if (isset($processedSources[$processedKey])) {
+            // if already converted, just return the converted ResponseBody object
+            return $processedSources[$processedKey];
+        }
+        $processedSources[$processedKey] = &$response;
+
+        // Now process all properties
         foreach ((new ReflectionClass($response))->getProperties() as $response_property) {
             $property_name = $response_property->getName();
             if (!$propertyAccessor->isWritable($response, $property_name) ||
@@ -41,30 +66,39 @@ abstract class ResponseBody
             }
             try {
                 $source_property_value = $propertyAccessor->getValue($source, $property_name);
-                $response_property_value = static::handleSourcePropertyValue($response_property, $source_property_value, $processed);
+                $response_property_types = $propertyInfoExtractor->getTypes(get_class($response), $property_name);
+                $response_property_value = $response->handleSourcePropertyValue(
+                    $source_property_value,
+                    $response_property_types ? $response_property_types[0] : null,
+                    $processedSources);
                 $propertyAccessor->setValue($response, $property_name, $response_property_value);
-            } catch (InvalidArgumentException | RuntimeException $ex) {
+            } catch (InvalidArgumentException) {
                 // exception for one property only skips that property
             }
         }
         return $response;
     }
 
-    static public function handleSourcePropertyValue(ReflectionProperty $response_property,
-                                                     mixed $source_property_value,
-                                                     array $processed): mixed
+    protected function handleSourcePropertyValue(mixed $source_property_value,
+                                                 ?Type $response_property_type,
+                                                 array $processedSources): mixed
     {
-        if ($source_property_value instanceof ResponseBodySourceInterface) {
-            return static::createResponseFromSource($source_property_value, $processed);
-        }
-        $response_property_type = $response_property->getType()->getName();
-        if ($source_property_value instanceof IteratorAggregate &&
-            $response_property_type == 'array') {
-            $array = [];
-            foreach ($source_property_value as $key => $val) {
-                $array[$key] = static::handleSourcePropertyValue($response_property, $val, $processed);
+        if ($source_property_value && $response_property_type) {
+            if ($response_property_type->isCollection()) {
+                $array = [];
+                $response_property_item_type = current($response_property_type->getCollectionValueTypes());
+                foreach ($source_property_value as $key => $val) {
+                    $array[$key] = $this->handleSourcePropertyValue(
+                        $val,
+                        $response_property_item_type ?: null,
+                        $processedSources);
+                }
+                return $array;
+            } elseif (($response_property_class = $response_property_type->getClassName())
+                && is_subclass_of($response_property_class, ResponseBody::class)
+                && $source_property_value instanceof ResponseBodySourceInterface) {
+                return static::createResponseFromSource($source_property_value, $response_property_class, $processedSources);
             }
-            return $array;
         }
         return $source_property_value;
     }
