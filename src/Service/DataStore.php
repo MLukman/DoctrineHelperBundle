@@ -25,9 +25,9 @@ abstract class DataStore
         return $this->em->getRepository($entity);
     }
 
-    public function queryBuilder(string $entity, string $alias = 'e'): QueryBuilder
+    public function queryBuilder(?string $entity = null, string $alias = 'e'): QueryBuilder
     {
-        return $this->repo($entity)->createQueryBuilder($alias);
+        return $entity ? $this->repo($entity)->createQueryBuilder($alias) : $this->em->createQueryBuilder();
     }
 
     public function createQuery(string $dql): Query

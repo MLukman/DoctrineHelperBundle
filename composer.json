@@ -1,6 +1,6 @@
 {
     "name": "mlukman/doctrine-helper-bundle",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "description": "A set of classes to simplify Symfony-Doctrine integration",
     "type": "symfony-bundle",
     "require": {
@@ -30,12 +30,12 @@
         "psr-4": {
             "MLukman\\DoctrineHelperBundle\\": "src/"
         }
-    },  
+    },
     "license": "MIT",
     "authors": [
         {
             "name": "Muhammad Lukman Nasaruddin",
-            "email": "anatilmizun@gmail.com"
+            "email": "lukman.nasaruddin@gmail.com"
         }
     ],
     "autoload-dev": {

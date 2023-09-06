@@ -98,6 +98,8 @@ abstract class ResponseBody
                 && is_subclass_of($response_property_class, ResponseBody::class)
                 && $source_property_value instanceof ResponseBodySourceInterface) {
                 return static::createResponseFromSource($source_property_value, $response_property_class, $processedSources);
+            } elseif ($response_property_type->getBuiltinType() == 'string' && $source_property_value instanceof \Stringable) {
+                return $source_property_value->__toString();
             }
         }
         return $source_property_value;

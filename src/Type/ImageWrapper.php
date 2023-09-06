@@ -9,7 +9,9 @@ use JsonSerializable;
 use Serializable;
 use Stringable;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
-use function GuzzleHttp\json_encode;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 
 class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUploadedFileInterface
 {
@@ -51,6 +53,12 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
      */
     private int $defaultMaxWidth = 200;
     private int $defaultMaxHeight = 200;
+
+    /**
+     *
+     * @var string The download link for the image that can be set by the application
+     */
+    private ?string $downloadLink = null;
 
     /**
      * Construct from either image stream or filename or Imagine\Image\ImageInterface
@@ -154,9 +162,10 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
         return ['mimetype' => $this->mimetype, 'base64' => $this->base64];
     }
 
+    // For Serializable
     public function serialize(): string
     {
-        return json_encode($this->__serialize());
+        return \json_encode($this->__serialize());
     }
 
     public function __unserialize(array $serialized): void
@@ -170,18 +179,24 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
         }
     }
 
+    // For Serializable
     public function unserialize(string $serialized): void
     {
         $this->__unserialize(\json_decode($serialized, true));
     }
 
+    // For JsonSerializable
     public function jsonSerialize(): mixed
     {
-        return $this->__serialize();
+        return $this->downloadLink ?: $this->__serialize();
     }
 
+    // For Stringable
     public function __toString(): string
     {
+        if (!empty($this->downloadLink)) {
+            return $this->downloadLink;
+        }
         $s = $this->__serialize();
         return "data:{$s['mimetype']};base64,{$s['base64']}";
     }
@@ -200,6 +215,32 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
     {
         $this->base64 = $base64;
         $this->__unserialize($this->__serialize());
+    }
+
+    public function getDownloadLink(): ?string
+    {
+        return $this->downloadLink;
+    }
+
+    public function setDownloadLink(?string $downloadLink): void
+    {
+        $this->downloadLink = $downloadLink;
+    }
+
+    public function getDownloadResponse(?Request $request = null): Response
+    {
+        $binary = $this->get();
+        $response = new Response($binary, 200, [
+            'Content-Type' => $this->getMimetype(),
+            'Content-Length' => strlen($binary),
+            'Content-Disposition' => ResponseHeaderBag::DISPOSITION_INLINE,
+        ]);
+        $response->setEtag(md5($binary));
+        $response->setPublic();
+        if ($request) {
+            $response->isNotModified($request);
+        }
+        return $response;
     }
 
     public static function getDefaultOutputFormat(): string
