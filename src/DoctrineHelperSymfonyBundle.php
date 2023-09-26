@@ -4,6 +4,7 @@ namespace MLukman\DoctrineHelperBundle;
 
 use MLukman\DoctrineHelperBundle\Query\DateFunction;
 use MLukman\DoctrineHelperBundle\Query\MatchAgainst;
+use MLukman\DoctrineHelperBundle\Type\EncryptedType;
 use MLukman\DoctrineHelperBundle\Type\FileType;
 use MLukman\DoctrineHelperBundle\Type\ImageType;
 use Ramsey\Uuid\Doctrine\UuidType;
@@ -30,6 +31,7 @@ class DoctrineHelperSymfonyBundle extends AbstractBundle
                     'image' => ImageType::class,
                     'file' => FileType::class,
                     'uuid' => UuidType::class,
+                    'encrypted' => EncryptedType::class,
                 ],
             ],
             'orm' => [

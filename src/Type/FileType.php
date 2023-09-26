@@ -4,6 +4,7 @@ namespace MLukman\DoctrineHelperBundle\Type;
 
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\BlobType;
+use InvalidArgumentException;
 
 /**
  * This subclass of BlobType stores & retrieves a file content along with its

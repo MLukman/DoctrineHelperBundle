@@ -154,7 +154,7 @@ abstract class RequestBody
             if ($request_property_value && !$target_property_value) {
                 $target_property_value = new \DateTime();
             }
-            if (!$request_property_value && $target_property_value) {
+            if (!$request_property_value && $target_property_value && $target_property_types[0]->allowsNull()) {
                 $target_property_value = null;
             }
         } else { // otherwise, just set the target property with same value as request property
