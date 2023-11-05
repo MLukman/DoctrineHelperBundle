@@ -36,6 +36,6 @@ class RequestBodyConverterCollector extends AbstractDataCollector
 
     public static function getTemplate(): ?string
     {
-        return '@DoctrineHelperSymfony/data_collector/template.html.twig';
+        return '@DoctrineHelper/data_collector/template.html.twig';
     }
 }

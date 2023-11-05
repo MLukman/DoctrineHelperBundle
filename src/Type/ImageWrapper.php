@@ -18,7 +18,7 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
     /**
      * @var string The default format of the image (either png or jpeg) for newly created instances
      */
-    static private string $defaultOutputFormat = 'png';
+    private static string $defaultOutputFormat = 'png';
 
     /**
      * @var string The format of the image (either png or jpeg)
@@ -98,7 +98,7 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
     }
 
     public function setDefaultMaxWidthHeight(int $defaultMaxWidth,
-                                             int $defaultMaxHeight)
+                                             int $defaultMaxHeight): void
     {
         $this->defaultMaxWidth = $defaultMaxWidth;
         $this->defaultMaxHeight = $defaultMaxHeight;
@@ -118,10 +118,11 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
         return $this;
     }
 
-    protected function refreshProperties()
+    protected function refreshProperties(): self
     {
         $this->base64 = base64_encode($this->get($this->ouputFormat));
         $this->mimetype = 'image/'.$this->ouputFormat;
+        return $this;
     }
 
     public function get(?string $format = null): ?string
@@ -137,24 +138,33 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
         return $this->_image;
     }
 
-    public function resize(int $maxWidth = 0, int $maxHeight = 0)
+    public function resize(int $maxWidth = 0, int $maxHeight = 0,
+                           bool $keepAspectRatio = true): self
     {
         if (!$this->_image) {
-            return;
+            return $this;
         }
-        $size = $this->_image->getSize();
-        $ratio = $size->getWidth() / $size->getHeight();
-        $width = $maxWidth > 0 ? $maxWidth : $this->defaultMaxWidth;
-        $height = $maxHeight > 0 ? $maxHeight : ($maxWidth > 0 ? $maxWidth : $this->defaultMaxHeight);
-        if ($width / $height > $ratio) {
-            $width = $height * $ratio;
+
+        if ($keepAspectRatio) {
+            $size = $this->_image->getSize();
+            $ratio = $size->getWidth() / $size->getHeight();
+            $width = $maxWidth > 0 ? $maxWidth : $this->defaultMaxWidth;
+            $height = $maxHeight > 0 ? $maxHeight : ($maxWidth > 0 ? $maxWidth : $this->defaultMaxHeight);
+            if ($width / $height > $ratio) {
+                $width = $height * $ratio;
+            } else {
+                $height = $width / $ratio;
+            }
         } else {
-            $height = $width / $ratio;
+            $width = $maxWidth;
+            $height = $maxHeight;
         }
+
         if ($width != $size->getWidth() || $height != $size->getHeight()) {
             $this->_image->resize(new Box($width, $height));
             $this->refreshProperties();
         }
+        return $this;
     }
 
     public function __serialize(): array
@@ -194,9 +204,11 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
     // For Stringable
     public function __toString(): string
     {
-        if (!empty($this->downloadLink)) {
-            return $this->downloadLink;
-        }
+        return $this->downloadLink ?: $this->getBase64DataUrl();
+    }
+
+    public function getBase64DataUrl(): string
+    {
         $s = $this->__serialize();
         return "data:{$s['mimetype']};base64,{$s['base64']}";
     }

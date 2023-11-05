@@ -6,7 +6,6 @@ use Doctrine\ORM\Mapping as ORM;
 use Ramsey\Uuid\Doctrine\UuidGenerator;
 use Ramsey\Uuid\UuidInterface;
 
-#[ORM\HasLifecycleCallbacks]
 trait UuidEntityTrait
 {
     #[ORM\Id]

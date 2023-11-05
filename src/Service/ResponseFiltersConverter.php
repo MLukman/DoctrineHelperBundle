@@ -47,7 +47,7 @@ final class ResponseFiltersConverter implements ValueResolverInterface
         )];
     }
 
-    static public function makeCriteriaFromArray(array $criterias): ?Criteria
+    public static function makeCriteriaFromArray(array $criterias): ?Criteria
     {
         $criteria = Criteria::create();
         foreach ($criterias as $key => $crit) {
@@ -67,7 +67,7 @@ final class ResponseFiltersConverter implements ValueResolverInterface
         return $criteria;
     }
 
-    static public function makeValue(mixed $value): mixed
+    public static function makeValue(mixed $value): mixed
     {
         if (is_string($value) && preg_match('/^[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2}/', $value)
             && ($date = new DateTime($value))) {

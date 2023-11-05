@@ -20,7 +20,7 @@ use Symfony\Component\PropertyInfo\Type;
 abstract class ResponseBody
 {
 
-    static public function createResponseFromSource(ResponseBodySourceInterface $source,
+    public static function createResponseFromSource(ResponseBodySourceInterface $source,
                                                     ?string $responseBodyClass = null,
                                                     array &$processedSources = array()): ?ResponseBody
     {

@@ -7,7 +7,7 @@ use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
 
-abstract class DataStore
+class DataStore
 {
 
     public function __construct(protected EntityManagerInterface $em)
@@ -74,16 +74,7 @@ abstract class DataStore
      */
     public function count(string $entity, array $criteria = []): int
     {
-        $qb = $this->queryBuilder($entity)->select('COUNT(1)');
-        foreach ($criteria as $field => $value) {
-            if (is_null($value)) {
-                $qb->andWhere("e.$field IS NULL");
-            } else {
-                $qb->andWhere("e.$field = :$field")
-                    ->setParameter($field, $value);
-            }
-        }
-        return $qb->getQuery()->getSingleScalarResult();
+        return $this->repo($entity)->count($criteria);
     }
 
     /**
@@ -149,17 +140,7 @@ abstract class DataStore
     public function getPrevious(mixed $current, string $sortedBy,
                                 array $matcherFields = []): mixed
     {
-        $class = get_class($current);
-        $qb = $this->queryBuilder($class, 'e')
-            ->join($class, 'c', 'WITH', 'c = :current')
-            ->where("e.${sortedBy} <= c.${sortedBy}")
-            ->andWhere('e != c')
-            ->setParameter('current', $current)
-            ->orderBy("e.${sortedBy}", 'DESC')
-            ->setMaxResults(1);
-        foreach ($matcherFields as $field) {
-            $qb->andWhere("e.${field} = c.${field}");
-        }
+        $qb = $this->previousNextQueryBuilder($current, $sortedBy, $matcherFields, 'prev');
         return $qb->getQuery()->getOneOrNullResult();
     }
 
@@ -174,18 +155,66 @@ abstract class DataStore
     public function getNext(mixed $current, string $sortedBy,
                             array $matcherFields = []): mixed
     {
+        $qb = $this->previousNextQueryBuilder($current, $sortedBy, $matcherFields, 'next');
+        return $qb->getQuery()->getOneOrNullResult();
+    }
+
+    /**
+     * Count how many entities previous to current based on
+     * sortedBy field and optionally a list of matcher fields
+     * @param mixed $current The current entity
+     * @param string $sortedBy The field name to sort by with
+     * @param array $matcherFields Optional list of fields that need to match with those of the current
+     * @return int The count
+     */
+    public function countPrevious(mixed $current, string $sortedBy,
+                                  array $matcherFields = []): int
+    {
+        $qb = $this->previousNextQueryBuilder($current, $sortedBy, $matcherFields, 'prev');
+        return $qb->select('COUNT(1)')->getQuery()->getSingleScalarResult();
+    }
+
+    /**
+     * Count how many entities next to current based on
+     * sortedBy field and optionally a list of matcher fields
+     * @param mixed $current The current entity
+     * @param string $sortedBy The field name to sort by with
+     * @param array $matcherFields Optional list of fields that need to match with those of the current
+     * @return int The count
+     */
+    public function countNext(mixed $current, string $sortedBy,
+                              array $matcherFields = []): int
+    {
+        $qb = $this->previousNextQueryBuilder($current, $sortedBy, $matcherFields, 'next');
+        return $qb->select('COUNT(1)')->getQuery()->getSingleScalarResult();
+    }
+
+    protected function previousNextQueryBuilder(mixed $current,
+                                                string $sortedBy,
+                                                array $matcherFields = [],
+                                                string $prevOrNext = 'next'): QueryBuilder
+    {
         $class = get_class($current);
         $qb = $this->queryBuilder($class, 'e')
             ->join($class, 'c', 'WITH', 'c = :current')
-            ->where("e.${sortedBy} >= c.${sortedBy}")
             ->andWhere('e != c')
             ->setParameter('current', $current)
-            ->orderBy("e.${sortedBy}", 'ASC')
             ->setMaxResults(1);
         foreach ($matcherFields as $field) {
             $qb->andWhere("e.${field} = c.${field}");
         }
-        return $qb->getQuery()->getOneOrNullResult();
+        switch ($prevOrNext) {
+            case 'prev':
+            case 'previous':
+                $qb->andWhere("e.${sortedBy} <= c.${sortedBy}")
+                    ->orderBy("e.${sortedBy}", 'DESC');
+                break;
+            case 'next':
+                $qb->andWhere("e.${sortedBy} >= c.${sortedBy}")
+                    ->orderBy("e.${sortedBy}", 'ASC');
+                break;
+        }
+        return $qb;
     }
 
     public function commit(&...$entities)

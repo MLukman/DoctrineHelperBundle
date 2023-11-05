@@ -13,7 +13,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\MappedSuperclass]
 trait AuditedEntityTrait
 {
-    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, options: ["default" => "CURRENT_TIMESTAMP"])]
     protected ?DateTimeInterface $created = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
@@ -29,13 +29,13 @@ trait AuditedEntityTrait
         return $this->updated;
     }
 
-    public function setCreated(?DateTimeInterface $created)
+    public function setCreated(?DateTimeInterface $created): self
     {
         $this->created = $created;
         return $this;
     }
 
-    public function setUpdated(?DateTimeInterface $updated)
+    public function setUpdated(?DateTimeInterface $updated): self
     {
         $this->updated = $updated;
         return $this;

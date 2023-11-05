@@ -99,7 +99,7 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
         return stream_get_contents($this->stream);
     }
 
-    public function setContent(string $content)
+    public function setContent(string $content): void
     {
         if ($this->stream) {
             fclose($this->stream);
@@ -147,6 +147,6 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
 
     public function __toString(): string
     {
-        return $this->downloadLink ?: $this->name;
+        return $this->downloadLink ?: $this->name ?: "Unknown";
     }
 }

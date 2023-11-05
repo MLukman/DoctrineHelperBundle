@@ -2,7 +2,7 @@
 
 namespace MLukman\DoctrineHelperBundle\Tests\App;
 
-use MLukman\DoctrineHelperBundle\DoctrineHelperSymfonyBundle;
+use MLukman\DoctrineHelperBundle\DoctrineHelperBundle;
 use MLukman\DoctrineHelperBundle\Service\ObjectValidator;
 use MLukman\DoctrineHelperBundle\Service\PaginatorConverter;
 use MLukman\DoctrineHelperBundle\Service\PreDefinedQueriesConverter;
@@ -30,7 +30,7 @@ class TestKernel extends Kernel
     {
         return [
             new FrameworkBundle(),
-            new DoctrineHelperSymfonyBundle(),
+            new DoctrineHelperBundle(),
         ];
     }
 

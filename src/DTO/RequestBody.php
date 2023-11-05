@@ -3,6 +3,7 @@
 namespace MLukman\DoctrineHelperBundle\DTO;
 
 use ArrayAccess;
+use DateTime;
 use DateTimeInterface;
 use LogicException;
 use ReflectionClass;
@@ -149,10 +150,10 @@ abstract class RequestBody
             $target_property_value = \array_map(fn($v) => trim($v), \explode("\n", $request_property_value));
         } elseif (\is_bool($request_property_value) && in_array($target_property_types[0]->getName(), [
                 DateTimeInterface::class,
-                \DateTime::class,
+                DateTime::class,
             ])) { // source is boolean but target expects datetime then true = current datetime, false = null
             if ($request_property_value && !$target_property_value) {
-                $target_property_value = new \DateTime();
+                $target_property_value = new DateTime();
             }
             if (!$request_property_value && $target_property_value && $target_property_types[0]->allowsNull()) {
                 $target_property_value = null;
