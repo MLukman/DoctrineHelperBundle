@@ -91,9 +91,13 @@ class RequestBodyConverterUtil
                 $typeReflection = new ReflectionClass($type);
                 if ($typeReflection->implementsInterface(FromUploadedFileInterface::class)) {
                     $fromUploadedFile = call_user_func([$type, 'fromUploadedFile'], $fval);
-                    $propertyAccessor->setValue($target, $fkey, $fromUploadedFile);
-                    $details[$fkey] = "File parsed as ".\get_class($fromUploadedFile);
-                    continue 2;
+                    if ($fromUploadedFile) {
+                        $propertyAccessor->setValue($target, $fkey, $fromUploadedFile);
+                        $details[$fkey] = "File parsed as ".\get_class($fromUploadedFile);
+                        continue 2;
+                    } else {
+                        $details[$fkey] = "File unable to be parsed as ".$type;
+                    }
                 }
             }
 

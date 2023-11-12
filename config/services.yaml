@@ -7,10 +7,6 @@ services:
     MLukman\DoctrineHelperBundle\Service\:
         resource: '../src/Service/'
 
-    MLukman\DoctrineHelperBundle\EventSubscriber\:
-        resource: '../src/EventSubscriber/'
-        tags: ['doctrine.orm.entity_listener']
-
     MLukman\DoctrineHelperBundle\EventSubscriber\AuditedEntitySubscriber:
         calls:
             - setSecurity: ['@?Symfony\Bundle\SecurityBundle\Security']

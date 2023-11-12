@@ -2,6 +2,7 @@
 
 namespace MLukman\DoctrineHelperBundle\Type;
 
+use Exception;
 use Imagine\Image\AbstractImagine;
 use Imagine\Image\Box;
 use Imagine\Image\ImageInterface;
@@ -267,6 +268,10 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
 
     public static function fromUploadedFile(UploadedFile $file): ?static
     {
-        return new self($file->getRealPath());
+        try {
+            return new self($file->getRealPath());
+        } catch (Exception $ex) {
+            return null;
+        }
     }
 }
