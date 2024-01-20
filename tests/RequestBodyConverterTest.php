@@ -3,12 +3,12 @@
 namespace MLukman\DoctrineHelperBundle\Tests;
 
 use MLukman\DoctrineHelperBundle\Service\RequestBodyConverter;
-use MLukman\DoctrineHelperBundle\Tests\App\BaseTestCase;
+use MLukman\DoctrineHelperBundle\Tests\App\TestCaseBase;
 use MLukman\DoctrineHelperBundle\Tests\App\SampleRequestBody;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 
-class RequestBodyConverterTest extends BaseTestCase
+class RequestBodyConverterTest extends TestCaseBase
 {
     private RequestBodyConverter $converter;
     private array $source = [];

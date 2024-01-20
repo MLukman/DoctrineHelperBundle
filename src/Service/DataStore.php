@@ -201,17 +201,17 @@ class DataStore
             ->setParameter('current', $current)
             ->setMaxResults(1);
         foreach ($matcherFields as $field) {
-            $qb->andWhere("e.${field} = c.${field}");
+            $qb->andWhere("e.{$field} = c.{$field}");
         }
         switch ($prevOrNext) {
             case 'prev':
             case 'previous':
-                $qb->andWhere("e.${sortedBy} <= c.${sortedBy}")
-                    ->orderBy("e.${sortedBy}", 'DESC');
+                $qb->andWhere("e.{$sortedBy} <= c.{$sortedBy}")
+                    ->orderBy("e.{$sortedBy}", 'DESC');
                 break;
             case 'next':
-                $qb->andWhere("e.${sortedBy} >= c.${sortedBy}")
-                    ->orderBy("e.${sortedBy}", 'ASC');
+                $qb->andWhere("e.{$sortedBy} >= c.{$sortedBy}")
+                    ->orderBy("e.{$sortedBy}", 'ASC');
                 break;
         }
         return $qb;

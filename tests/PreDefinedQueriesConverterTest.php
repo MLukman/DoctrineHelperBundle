@@ -4,11 +4,11 @@ namespace MLukman\DoctrineHelperBundle\Tests;
 
 use MLukman\DoctrineHelperBundle\DTO\PreDefinedQueries;
 use MLukman\DoctrineHelperBundle\Service\PreDefinedQueriesConverter;
-use MLukman\DoctrineHelperBundle\Tests\App\BaseTestCase;
+use MLukman\DoctrineHelperBundle\Tests\App\TestCaseBase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 
-class PreDefinedQueriesConverterTest extends BaseTestCase
+class PreDefinedQueriesConverterTest extends TestCaseBase
 {
 
     public function testResolve(): void

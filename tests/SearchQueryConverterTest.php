@@ -4,11 +4,11 @@ namespace MLukman\DoctrineHelperBundle\Tests;
 
 use MLukman\DoctrineHelperBundle\DTO\SearchQuery;
 use MLukman\DoctrineHelperBundle\Service\SearchQueryConverter;
-use MLukman\DoctrineHelperBundle\Tests\App\BaseTestCase;
+use MLukman\DoctrineHelperBundle\Tests\App\TestCaseBase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 
-class SearchQueryConverterTest extends BaseTestCase
+class SearchQueryConverterTest extends TestCaseBase
 {
 
     public function testResolve(): void

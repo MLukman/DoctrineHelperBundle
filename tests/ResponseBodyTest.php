@@ -2,11 +2,11 @@
 
 namespace MLukman\DoctrineHelperBundle\Tests;
 
-use MLukman\DoctrineHelperBundle\Tests\App\BaseTestCase;
+use MLukman\DoctrineHelperBundle\Tests\App\TestCaseBase;
 use MLukman\DoctrineHelperBundle\Tests\App\SampleResponseBody;
 use MLukman\DoctrineHelperBundle\Tests\App\SampleResponseBodySource;
 
-class ResponseBodyTest extends BaseTestCase
+class ResponseBodyTest extends TestCaseBase
 {
 
     public function testCreateResponseFromSource(): void

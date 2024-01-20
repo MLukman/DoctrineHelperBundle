@@ -4,11 +4,11 @@ namespace MLukman\DoctrineHelperBundle\Tests;
 
 use MLukman\DoctrineHelperBundle\DTO\Paginator;
 use MLukman\DoctrineHelperBundle\Service\PaginatorConverter;
-use MLukman\DoctrineHelperBundle\Tests\App\BaseTestCase;
+use MLukman\DoctrineHelperBundle\Tests\App\TestCaseBase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 
-class PaginatorConverterTest extends BaseTestCase
+class PaginatorConverterTest extends TestCaseBase
 {
 
     public function testResolve(): void

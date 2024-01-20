@@ -5,7 +5,7 @@ namespace MLukman\DoctrineHelperBundle\Tests\App;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpKernel\KernelInterface;
 
-abstract class BaseTestCase extends KernelTestCase
+abstract class TestCaseBase extends KernelTestCase
 {
 
     protected static function createKernel(array $options = []): KernelInterface
@@ -20,6 +20,6 @@ abstract class BaseTestCase extends KernelTestCase
 
     protected function service(string $className)
     {
-        return self::$kernel->getContainer()->get($className);
+        return static::$kernel->getContainer()->get($className);
     }
 }

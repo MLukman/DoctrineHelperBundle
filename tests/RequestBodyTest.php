@@ -2,11 +2,11 @@
 
 namespace MLukman\DoctrineHelperBundle\Tests;
 
-use MLukman\DoctrineHelperBundle\Tests\App\BaseTestCase;
+use MLukman\DoctrineHelperBundle\Tests\App\TestCaseBase;
 use MLukman\DoctrineHelperBundle\Tests\App\SampleRequestBody;
 use MLukman\DoctrineHelperBundle\Tests\App\SampleRequestBodyTarget;
 
-class RequestBodyTest extends BaseTestCase
+class RequestBodyTest extends TestCaseBase
 {
 
     public function testPopulate(): void
