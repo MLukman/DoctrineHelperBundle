@@ -11,9 +11,14 @@ class TimestampIdGenerator extends AbstractIdGenerator
 
     public function generateId(EntityManagerInterface $em, $entity): string
     {
-        return
-            (\method_exists($entity, 'getIdPrefix') ? $entity->getIdPrefix() : '').
-            (new DateTime())->format('YmdHisu').
-            (\method_exists($entity, 'getIdSuffix') ? $entity->getIdSuffix() : '');
+        $id = '';
+        if (\method_exists($entity, 'getIdPrefix')) {
+            $id .= $entity->getIdPrefix();
+        }
+        $id .= (new DateTime())->format('YmdHisu');
+        if (\method_exists($entity, 'getIdSuffix')) {
+            $id .= $entity->getIdSuffix();
+        }
+        return $id;
     }
 }

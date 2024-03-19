@@ -1,6 +1,6 @@
 <?php
 
-namespace MLukman\DoctrineHelperBundle\EventSubscriber;
+namespace MLukman\DoctrineHelperBundle\Service;
 
 use DateTime;
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;

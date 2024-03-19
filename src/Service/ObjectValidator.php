@@ -15,9 +15,9 @@ class ObjectValidator
     }
 
     public function validate(mixed $entity, bool $asArray = true,
-                             array &$errors = []): array
+                             array &$errors = [], array $groups = []): array
     {
-        $validationResults = $this->validator->validate($entity);
+        $validationResults = $this->validator->validate($entity, null, $groups);
         foreach ($validationResults as $violation) {
             /* @var $violation ConstraintViolationInterface */
             $this->addValidationError($errors, $violation->getPropertyPath(), $violation);

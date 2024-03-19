@@ -6,6 +6,7 @@ use Exception;
 use Imagine\Image\AbstractImagine;
 use Imagine\Image\Box;
 use Imagine\Image\ImageInterface;
+use Imagine\Image\Point;
 use JsonSerializable;
 use Serializable;
 use Stringable;
@@ -16,6 +17,10 @@ use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 
 class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUploadedFileInterface
 {
+    public const RESIZE_FIT = 'fit';
+    public const RESIZE_CROP = 'crop';
+    public const RESIZE_STRETCH = 'stretch';
+
     /**
      * @var string The default format of the image (either png or jpeg) for newly created instances
      */
@@ -71,6 +76,7 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
                                 string $engineType = 'gd')
     {
         $this->engineType = $engineType;
+        $this->ouputFormat = $outputFormat ?: self::$defaultOutputFormat;
         if (is_resource($image)) {
             $this->loadResource($image);
         } elseif (is_string($image) && file_exists($image)) {
@@ -78,7 +84,6 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
         } elseif ($image instanceof ImageInterface) {
             $this->_image = $image;
         }
-        $this->ouputFormat = $outputFormat ?: self::$defaultOutputFormat;
     }
 
     protected function engine(): AbstractImagine
@@ -140,28 +145,55 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
     }
 
     public function resize(int $maxWidth = 0, int $maxHeight = 0,
-                           bool $keepAspectRatio = true): self
+                           string $resizeMode = self::RESIZE_FIT): self
     {
         if (!$this->_image) {
             return $this;
         }
 
-        if ($keepAspectRatio) {
-            $size = $this->_image->getSize();
-            $ratio = $size->getWidth() / $size->getHeight();
-            $width = $maxWidth > 0 ? $maxWidth : $this->defaultMaxWidth;
-            $height = $maxHeight > 0 ? $maxHeight : ($maxWidth > 0 ? $maxWidth : $this->defaultMaxHeight);
-            if ($width / $height > $ratio) {
-                $width = $height * $ratio;
-            } else {
-                $height = $width / $ratio;
-            }
-        } else {
-            $width = $maxWidth;
-            $height = $maxHeight;
+        $size = $this->_image->getSize();
+        $oriWidth = $size->getWidth();
+        $oriHeight = $size->getHeight();
+        $ratio = $oriWidth / $oriHeight;
+        $targetWidth = $maxWidth > 0 ? $maxWidth : $this->defaultMaxWidth;
+        $targetHeight = $maxHeight > 0 ? $maxHeight :
+            ($maxWidth > 0 ? $maxWidth : $this->defaultMaxHeight);
+        $targetRatio = $targetWidth / $targetHeight;
+
+        switch ($resizeMode) {
+            case static::RESIZE_STRETCH:
+                $width = $targetWidth;
+                $height = $targetHeight;
+                break;
+
+            case static::RESIZE_CROP:
+                if ($targetRatio > $ratio) {
+                    $newHeight = $oriWidth / $targetRatio;
+                    $this->_image->crop(
+                        new Point(0, ($oriHeight - $newHeight) / 2),
+                        new Box($oriWidth, $newHeight));
+                } else if ($targetRatio < $ratio) {
+                    $newWidth = $oriHeight * $targetRatio;
+                    $this->_image->crop(
+                        new Point(($oriWidth - $newWidth) / 2, 0),
+                        new Box($newWidth, $oriHeight));
+                }
+                $width = $targetWidth;
+                $height = $targetHeight;
+                break;
+            case static::RESIZE_FIT:
+            default:
+                if ($targetRatio > $ratio) {
+                    $height = $targetHeight;
+                    $width = $targetHeight * $ratio;
+                } else {
+                    $width = $targetWidth;
+                    $height = $targetWidth / $ratio;
+                }
+                break;
         }
 
-        if ($width != $size->getWidth() || $height != $size->getHeight()) {
+        if ($width != $oriWidth || $height != $oriHeight) {
             $this->_image->resize(new Box($width, $height));
             $this->refreshProperties();
         }

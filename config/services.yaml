@@ -7,7 +7,7 @@ services:
     MLukman\DoctrineHelperBundle\Service\:
         resource: '../src/Service/'
 
-    MLukman\DoctrineHelperBundle\EventSubscriber\AuditedEntitySubscriber:
+    MLukman\DoctrineHelperBundle\Service\AuditedEntitySubscriber:
         calls:
             - setSecurity: ['@?Symfony\Bundle\SecurityBundle\Security']
 
