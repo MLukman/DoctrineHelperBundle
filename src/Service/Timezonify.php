@@ -10,7 +10,7 @@ use Doctrine\ORM\Event\PrePersistEventArgs;
 use Doctrine\ORM\Event\PreUpdateEventArgs;
 use Doctrine\ORM\Events;
 use Exception;
-use MLukman\DoctrineHelperBundle\Type\ZonedDateTime;
+use MLukman\DoctrineHelperBundle\Attribute\Timezonify as TimezonifyAttribute;
 use ReflectionClass;
 use ReflectionProperty;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -114,9 +114,11 @@ class Timezonify
     {
         try {
             $property_name = $property->getName();
-            if ($property->isInitialized($object) &&
+
+            if (!empty($property->getAttributes(TimezonifyAttribute::class)) &&
+                $property->isInitialized($object) &&
                 $this->propertyAccessor->isReadable($object, $property_name) &&
-                ($value = $this->propertyAccessor->getValue($object, $property_name)) instanceof ZonedDateTime
+                ($value = $this->propertyAccessor->getValue($object, $property_name)) instanceof DateTime
                 && $this->propertyAccessor->isWritable($object, $property_name)) {
                 $this->propertyAccessor->setValue($object, $property_name, $updateFn($value));
             }
