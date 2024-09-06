@@ -26,11 +26,19 @@ class FileType extends BlobType
             $class = FileWrapper::class;
             throw new InvalidArgumentException("Column of type '$name' can only accept an object of class '$class'");
         }
-        return \pack('a255Qa255H*',
+        $data = $value->getContent();
+        $compression = function_exists("gzencode") ? "gzip" : "";
+        switch ($compression) {
+            case "gzip":
+                $data = gzencode($data);
+                break;
+        }
+        return \pack('a255Qa250a5H*',
             $value->getName(),
             $value->getSize(),
             $value->getMimetype(),
-            bin2hex($value->getContent()));
+            $compression,
+            bin2hex($data));
     }
 
     public function convertToPHPValue($value, AbstractPlatform $platform): mixed
@@ -38,9 +46,13 @@ class FileType extends BlobType
         if ($value === null) {
             return null;
         }
-        $unpacked = \unpack('a255name/Qsize/a255mimetype/H*content', $value);
+        $unpacked = \unpack('a255name/Qsize/a250mimetype/a5compression/H*content', $value);
         $filestore = new FileWrapper(trim($unpacked['name']), $unpacked['size'], trim($unpacked['mimetype']));
-        $filestore->setContent(hex2bin($unpacked['content']));
+        $data = hex2bin($unpacked['content']);
+        if (trim($unpacked['compression']) == 'gzip') {
+            $data = gzdecode($data);
+        }
+        $filestore->setContent($data);
         return $filestore;
     }
 }

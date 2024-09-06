@@ -9,6 +9,7 @@ use Doctrine\ORM\QueryBuilder;
 
 class DataStore
 {
+    private $caches = [];
 
     public function __construct(protected EntityManagerInterface $em)
     {
@@ -51,6 +52,16 @@ class DataStore
         return (is_array($id_or_criteria) ?
             $this->repo($entity)->findOneBy($id_or_criteria, $orderBy) :
             $this->repo($entity)->find($id_or_criteria));
+    }
+
+    public function cachedQueryOne(string $entity, $id_or_criteria,
+                                   array $orderBy = null): mixed
+    {
+        $signature = md5(serialize([$entity, $id_or_criteria, $orderBy]));
+        if (!isset($this->caches[$signature]) || is_null($this->caches[$signature])) {
+            $this->caches[$signature] = $this->queryOne($entity, $id_or_criteria, $orderBy);
+        }
+        return $this->caches[$signature];
     }
 
     /**
