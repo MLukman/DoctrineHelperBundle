@@ -14,11 +14,11 @@ use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
  */
 final class RequestBodyConverter implements ValueResolverInterface
 {
-
-    public function __construct(private ObjectValidator $validator,
-                                private RequestBodyConverterUtil $util)
-    {
-
+    public function __construct(
+            private ObjectValidator $validator,
+            private RequestBodyConverterUtil $util
+    ) {
+        
     }
 
     public function getUtil(): RequestBodyConverterUtil
@@ -43,9 +43,9 @@ final class RequestBodyConverter implements ValueResolverInterface
         return [$obj];
     }
 
-    protected function doResolve(Request $request, string $type, string $name,
-                                 array &$processings): mixed
-    {
+    protected function doResolve(
+            Request $request, string $type, string $name, array &$processings
+    ): mixed {
         if (!in_array($request->getMethod(), ['POST', 'PUT'])) {
             $processings[] = [
                 'phase' => 'request_method_check',
@@ -60,8 +60,7 @@ final class RequestBodyConverter implements ValueResolverInterface
         ];
 
         try {
-            $body = ($request->headers->get('Content-type') == 'application/json'
-                    ? $request->getContent() : \json_encode($request->request->all()));
+            $body = ($request->headers->get('Content-type') == 'application/json' ? $request->getContent() : \json_encode($request->request->all()));
             if (!($body_array = \json_decode($body, true))) {
                 $processings[] = [
                     'phase' => 'read_request',

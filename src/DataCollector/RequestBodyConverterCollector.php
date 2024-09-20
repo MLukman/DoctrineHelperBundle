@@ -10,15 +10,14 @@ use Throwable;
 
 class RequestBodyConverterCollector extends AbstractDataCollector
 {
-
     public function __construct(private RequestBodyConverterUtil $util)
     {
-
+        
     }
 
-    public function collect(Request $request, Response $response,
-                            Throwable $exception = null): void
-    {
+    public function collect(
+            Request $request, Response $response, Throwable $exception = null
+    ): void {
         $this->data = [
             'processings' => $this->util->getParameterProcessings(),
         ];

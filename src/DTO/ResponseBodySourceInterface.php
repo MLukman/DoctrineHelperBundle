@@ -8,7 +8,6 @@ namespace MLukman\DoctrineHelperBundle\DTO;
  */
 interface ResponseBodySourceInterface
 {
-
     /**
      * Create an instance of ResponseBody subclass that will hold the converted values from $this instance.
      * @return ResponseBody|null

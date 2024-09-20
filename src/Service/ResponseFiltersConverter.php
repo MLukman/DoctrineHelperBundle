@@ -43,7 +43,7 @@ final class ResponseFiltersConverter implements ValueResolverInterface
             $filters = \json_decode($filters, true);
         }
         return [new ResponseFilters(
-                self::makeCriteriaFromArray(is_array($filters) ? $filters : [])
+                    self::makeCriteriaFromArray(is_array($filters) ? $filters : [])
         )];
     }
 
@@ -69,8 +69,7 @@ final class ResponseFiltersConverter implements ValueResolverInterface
 
     public static function makeValue(mixed $value): mixed
     {
-        if (is_string($value) && preg_match('/^[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2}/', $value)
-            && ($date = new DateTime($value))) {
+        if (is_string($value) && preg_match('/^[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2}/', $value) && ($date = new DateTime($value))) {
             return $date;
         }
         return $value;

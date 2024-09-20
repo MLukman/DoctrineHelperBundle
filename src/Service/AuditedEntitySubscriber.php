@@ -11,7 +11,7 @@ use MLukman\DoctrineHelperBundle\Interface\AuditedEntityInterface;
 
 #[AsDoctrineListener(event: Events::prePersist)]
 #[AsDoctrineListener(event: Events::preUpdate)]
-class AuditedEntitySubscriber
+final class AuditedEntitySubscriber
 {
     protected ?\Symfony\Bundle\SecurityBundle\Security $security = null;
 

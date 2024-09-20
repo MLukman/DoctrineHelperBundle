@@ -2,6 +2,8 @@
 
 namespace MLukman\DoctrineHelperBundle\Type;
 
+use Closure;
+use Ramsey\Uuid\Uuid;
 use Stringable;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
@@ -9,6 +11,12 @@ use Symfony\Component\HttpFoundation\Response;
 
 class FileWrapper implements FromUploadedFileInterface, Stringable
 {
+    /**
+     *
+     * @var string UUID
+     */
+    protected ?string $uuid = null;
+
     /**
      *
      * @var string The file name
@@ -35,15 +43,24 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
 
     /**
      *
+     * @var Closure The callback that needs to be call to get content stream. 
+     * Use this if the stream capturing can be postponed, e.g. fopen() on files
+     */
+    protected ?Closure $streamCallback = null;
+
+    /**
+     *
      * @var string The download link for the file that can be set by the application
      */
     private ?string $downloadLink = null;
 
-    public function __construct(?string $name, int $size, ?string $mimetype)
-    {
+    public function __construct(
+            ?string $name, int $size, ?string $mimetype, string $uuid = null
+    ) {
         $this->name = $name;
         $this->size = $size;
         $this->mimetype = $mimetype;
+        $this->uuid = $uuid ?: Uuid::uuid7();
     }
 
     public function __destruct()
@@ -51,6 +68,11 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
         if ($this->stream) {
             fclose($this->stream);
         }
+    }
+
+    public function getUuid(): ?string
+    {
+        return $this->uuid;
     }
 
     public function getName(): ?string
@@ -70,6 +92,9 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
 
     public function getStream()
     {
+        if (!$this->stream && $this->streamCallback) {
+            $this->stream = call_user_func($this->streamCallback);
+        }
         return $this->stream;
     }
 
@@ -93,10 +118,21 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
         $this->stream = $stream;
     }
 
+    public function getStreamCallback(): ?Closure
+    {
+        return $this->streamCallback;
+    }
+
+    public function setStreamCallback(?Closure $streamCallback): void
+    {
+        $this->streamCallback = $streamCallback;
+    }
+
     public function getContent(): string|false
     {
-        rewind($this->stream);
-        return stream_get_contents($this->stream);
+        $stream = $this->getStream();
+        rewind($stream);
+        return stream_get_contents($stream);
     }
 
     public function setContent(string $content): void
@@ -135,12 +171,13 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
         return $response;
     }
 
-    public static function fromUploadedFile(UploadedFile $file): ?static
-    {
+    public static function fromUploadedFile(
+            UploadedFile $file, ?self $existing = null
+    ): ?static {
         if (!$file->isValid()) {
             return null;
         }
-        $filestore = new self($file->getClientOriginalName(), $file->getSize(), $file->getMimeType());
+        $filestore = new self($file->getClientOriginalName(), $file->getSize(), $file->getMimeType(), $existing ? $existing->uuid : null);
         $filestore->setStream(fopen($file->getRealPath(), 'r'));
         return $filestore;
     }

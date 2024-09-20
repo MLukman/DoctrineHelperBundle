@@ -7,7 +7,6 @@ use Doctrine\ORM\Id\AbstractIdGenerator;
 
 class Hex16IdGenerator extends AbstractIdGenerator
 {
-
     public function generateId(EntityManagerInterface $em, $entity): string
     {
         return bin2hex(random_bytes(8));

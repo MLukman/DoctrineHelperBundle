@@ -20,14 +20,14 @@ class EncryptedType extends TextType
             static::$encryptionKey = $_ENV['APP_SECRET'] ?? "Lorem ipsum dolor sit amet eget.";
         }
         return substr(
-            str_repeat(
-                static::$encryptionKey,
-                intval(
-                    ceil(1.0 * $length / strlen(static::$encryptionKey))
-                )
-            ),
-            0,
-            $length
+                str_repeat(
+                        static::$encryptionKey,
+                        intval(
+                                ceil(1.0 * $length / strlen(static::$encryptionKey))
+                        )
+                ),
+                0,
+                $length
         );
     }
 
@@ -46,7 +46,7 @@ class EncryptedType extends TextType
         $iv = openssl_random_pseudo_bytes($ivlen);
         $ciphertext_raw = openssl_encrypt($to_encrypt, $cipher, $key, OPENSSL_RAW_DATA, $iv);
         $hmac = hash_hmac('sha256', $ciphertext_raw, $key, $as_binary = true);
-        return base64_encode($iv.$hmac.$ciphertext_raw);
+        return base64_encode($iv . $hmac . $ciphertext_raw);
     }
 
     public static function decrypt(?string $cipherText = null): ?string
@@ -65,7 +65,7 @@ class EncryptedType extends TextType
                 return openssl_decrypt($ciphertext_raw, $cipher, $key, OPENSSL_RAW_DATA, $iv);
             }
         } catch (\Exception $ex) {
-
+            
         }
         return null;
     }

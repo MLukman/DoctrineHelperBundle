@@ -8,7 +8,6 @@ use Doctrine\ORM\Id\AbstractIdGenerator;
 
 class TimestampIdGenerator extends AbstractIdGenerator
 {
-
     public function generateId(EntityManagerInterface $em, $entity): string
     {
         $id = '';

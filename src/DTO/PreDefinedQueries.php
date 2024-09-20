@@ -9,11 +9,11 @@ class PreDefinedQueries
     protected array $queries = [];
     protected ?string $translationPrefix = null;
 
-    public function __construct(protected string $name,
-                                protected string $baseUrl,
-                                protected ?string $selectedId)
-    {
-
+    public function __construct(
+            protected string $name, protected string $baseUrl,
+            protected ?string $selectedId
+    ) {
+        
     }
 
     public function addQuery(string $id, callable $queryBuilderModifier): self
@@ -46,10 +46,10 @@ class PreDefinedQueries
             parse_str($url_parts['query'], $params);
         }
         return array_combine(array_keys($this->queries), array_map(
-                function ($k) use ($baseUrl, $params) {
-                    return $baseUrl.'?'.\http_build_query(array_merge($params, [
-                        ($this->name) => $k]));
-                }, array_keys($this->queries))
+                        function ($k) use ($baseUrl, $params) {
+                            return $baseUrl . '?' . \http_build_query(array_merge($params, [
+                                ($this->name) => $k]));
+                        }, array_keys($this->queries))
         );
     }
 

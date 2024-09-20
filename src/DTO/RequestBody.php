@@ -19,7 +19,6 @@ use Symfony\Component\PropertyAccess\PropertyAccess;
  */
 abstract class RequestBody
 {
-
     /**
      * Populate properties of entity with same names as $this properties.
      *
@@ -27,9 +26,10 @@ abstract class RequestBody
      * @param mixed $context
      * @return RequestBodyTargetInterface
      */
-    public function populate(RequestBodyTargetInterface $target,
-                             mixed $context = null): RequestBodyTargetInterface
-    {
+    public function populate(
+        RequestBodyTargetInterface $target,
+        mixed $context = null
+    ): RequestBodyTargetInterface {
         // Prepare helpers
         $request_reflection = new ReflectionClass($this);
         $target_reflection = new ReflectionClass($target);
@@ -41,24 +41,24 @@ abstract class RequestBody
 
             // Ensure basic requirements to process property is fulfilled
             if (!$request_property->isInitialized($this) ||
-                !$propertyAccessor->isReadable($this, $property_name) ||
-                !$target_reflection->hasProperty($property_name) ||
-                !$propertyAccessor->isWritable($target, $property_name)) {
+                    !$propertyAccessor->isReadable($this, $property_name) ||
+                    !$target_reflection->hasProperty($property_name) ||
+                    !$propertyAccessor->isWritable($target, $property_name)) {
                 continue;
             }
 
             // Get both request & target properties' original values
             $request_property_value = $request_property->getValue($this);
-            $target_property_value_orig = $target_reflection->getProperty($property_name)->isInitialized($target)
-                    ? $propertyAccessor->getValue($target, $property_name) : null;
+            $target_property_value_orig = $target_reflection->getProperty($property_name)->isInitialized($target) ? $propertyAccessor->getValue($target, $property_name) : null;
 
             // Find out the type(s) of the target property
             $target_property_type = $target_reflection->getProperty($property_name)->getType();
             $target_property_types = (
                 !$target_property_type ? [] : (
-                $target_property_type instanceof ReflectionUnionType ?
-                $target_property_type->getTypes() : [$target_property_type]
-                ));
+                    $target_property_type instanceof ReflectionUnionType ?
+                    $target_property_type->getTypes() : [$target_property_type]
+                )
+            );
 
             $target_property_value = $this->prepareTargetPropertyValue($target, $property_name, $request_property_value, $target_property_value_orig, $target_property_types, $context);
 
@@ -72,18 +72,19 @@ abstract class RequestBody
         return $target;
     }
 
-    protected function prepareTargetPropertyValue(RequestBodyTargetInterface $target,
-                                                  string $property_name,
-                                                  mixed $request_property_value,
-                                                  mixed $target_property_value,
-                                                  array $target_property_types,
-                                                  mixed $context = null): mixed
-    {
+    protected function prepareTargetPropertyValue(
+        RequestBodyTargetInterface $target,
+        string $property_name,
+        mixed $request_property_value,
+        mixed $target_property_value,
+        array $target_property_types,
+        mixed $context = null
+    ): mixed {
         // Filter only target property type(s) that implement RequestBodyTargetInterface
-        $target_property_requestbodytarget_types = \array_filter($target_property_types, fn($type) =>
-            ($type_name = $type->getName()) &&
-            \class_exists($type_name) &&
-            (new ReflectionClass($type_name))->implementsInterface(RequestBodyTargetInterface::class));
+        $target_property_requestbodytarget_types = \array_filter($target_property_types, fn ($type) =>
+                ($type_name = $type->getName()) &&
+                \class_exists($type_name) &&
+                (new ReflectionClass($type_name))->implementsInterface(RequestBodyTargetInterface::class));
         if (!empty($target_property_requestbodytarget_types)) { // if the target property implements RequestBodyTargetInterface
             if (\is_scalar($request_property_value)) { // if request property is scalar
                 $type_index = 0;
@@ -92,7 +93,7 @@ abstract class RequestBody
                     $type_index++;
                 } while (\is_null($target_property_value) && $type_index < \count($target_property_requestbodytarget_types));
             } elseif ($request_property_value instanceof RequestBody &&
-                ($target_property_value instanceof RequestBodyTargetInterface || \is_null($target_property_value))) { // if request property is RequestBody
+                    ($target_property_value instanceof RequestBodyTargetInterface || \is_null($target_property_value))) { // if request property is RequestBody
                 $target_property_value = $this->populateChild($target, $property_name, $request_property_value, $target_property_value, null, $context);
             }
         } elseif (\is_iterable($request_property_value)) { // if request property is iterable and target property allow array access
@@ -100,14 +101,12 @@ abstract class RequestBody
             if (\is_array($target_property_value) || 'array' === $target_property_type_name) { // if target property is primitive array
                 foreach ($request_property_value as $request_key => $request_key_value) {
                     if ($request_key_value instanceof RequestBody) {
-                        $target_key_value = \is_array($target_property_value) ? ($target_property_value[$request_key]
-                                ?? null) : null;
+                        $target_key_value = \is_array($target_property_value) ? ($target_property_value[$request_key] ?? null) : null;
                         $request_key_value = $this->populateChild(
                             $target,
                             $property_name,
                             $request_key_value,
-                            $target_key_value instanceof RequestBodyTargetInterface
-                                ? $target_key_value : null,
+                            $target_key_value instanceof RequestBodyTargetInterface ? $target_key_value : null,
                             $request_key,
                             $context
                         );
@@ -119,9 +118,8 @@ abstract class RequestBody
                     }
                 }
             } elseif ($target_property_value instanceof ArrayAccess ||
-                (\class_exists($target_property_type_name) &&
-                ($target_property_type_refl = new ReflectionClass($target_property_type_name))
-                && $target_property_type_refl->implementsInterface(ArrayAccess::class))) {
+                    (\class_exists($target_property_type_name) &&
+                    ($target_property_type_refl = new ReflectionClass($target_property_type_name)) && $target_property_type_refl->implementsInterface(ArrayAccess::class))) {
 
                 // Instantiate null/undefined $target_property_value assuming the constructor does not require arguments
                 if (!$target_property_value) {
@@ -134,10 +132,10 @@ abstract class RequestBody
                             $target,
                             $property_name,
                             $request_key_value,
-                            $target_key_value instanceof RequestBodyTargetInterface
-                                ? $target_key_value : null,
+                            $target_key_value instanceof RequestBodyTargetInterface ? $target_key_value : null,
                             $request_key,
-                            $context);
+                            $context
+                        );
                     }
                     if (!\is_null($request_key_value)) {
                         $target_property_value->offsetSet($request_key, $request_key_value);
@@ -147,11 +145,11 @@ abstract class RequestBody
                 }
             }
         } elseif (\is_string($request_property_value) && 'array' === $target_property_types[0]->getName()) { // source is string but target expects array
-            $target_property_value = \array_map(fn($v) => trim($v), \explode("\n", $request_property_value));
+            $target_property_value = \array_map(fn ($v) => trim($v), \explode("\n", $request_property_value));
         } elseif (\is_bool($request_property_value) && in_array($target_property_types[0]->getName(), [
-                DateTimeInterface::class,
-                DateTime::class,
-            ])) { // source is boolean but target expects datetime then true = current datetime, false = null
+                    DateTimeInterface::class,
+                    DateTime::class,
+                ])) { // source is boolean but target expects datetime then true = current datetime, false = null
             if ($request_property_value && !$target_property_value) {
                 $target_property_value = new DateTime();
             }
@@ -178,11 +176,13 @@ abstract class RequestBody
      * @return RequestBodyTargetInterface|null
      */
     protected function populateChild(
-        RequestBodyTargetInterface $target, string $targetChildName,
+        RequestBodyTargetInterface $target,
+        string $targetChildName,
         RequestBody $requestBodyChild,
-        ?RequestBodyTargetInterface $targetChild = null, ?string $key = null,
-        mixed $context = null): ?RequestBodyTargetInterface
-    {
+        ?RequestBodyTargetInterface $targetChild = null,
+        ?string $key = null,
+        mixed $context = null
+    ): ?RequestBodyTargetInterface {
         if ($targetChild) {
             return $requestBodyChild->populate($targetChild, $context);
         }
@@ -201,10 +201,12 @@ abstract class RequestBody
      * @return RequestBodyTargetInterface|null
      */
     protected function createRequestBodyTargetInterfaceFromScalarProperty(
-        RequestBodyTargetInterface $target, string $property_name,
-        mixed $scalar_value, string $requestBodyTargetClass,
-        mixed $context = null): ?RequestBodyTargetInterface
-    {
+        RequestBodyTargetInterface $target,
+        string $property_name,
+        mixed $scalar_value,
+        string $requestBodyTargetClass,
+        mixed $context = null
+    ): ?RequestBodyTargetInterface {
         return null;
     }
 
@@ -217,9 +219,11 @@ abstract class RequestBody
      * @param mixed $context Additional context to pass among populateTarget(), populateTargetChild() and postSetTargetValue()
      */
     protected function postSetPropertyValue(
-        RequestBodyTargetInterface $target, string $property_name,
-        mixed $target_property_value, mixed $context = null)
-    {
+        RequestBodyTargetInterface $target,
+        string $property_name,
+        mixed $target_property_value,
+        mixed $context = null
+    ) {
 
     }
 

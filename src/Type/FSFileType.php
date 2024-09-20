@@ -3,7 +3,7 @@
 namespace MLukman\DoctrineHelperBundle\Type;
 
 use Doctrine\DBAL\Platforms\AbstractPlatform;
-use Doctrine\DBAL\Types\BlobType;
+use Doctrine\DBAL\Types\JsonType;
 use InvalidArgumentException;
 
 /**
@@ -11,11 +11,11 @@ use InvalidArgumentException;
  * filename, size & mime type to & from database LONGBLOB column.
  * MUST be used with FileWrapper objects only.
  */
-class FileType extends BlobType
+class FSFileType extends JsonType
 {
     public function getName(): string
     {
-        return "file";
+        return "fsfile";
     }
 
     public function convertToDatabaseValue($value, AbstractPlatform $platform): mixed
@@ -28,21 +28,15 @@ class FileType extends BlobType
             $class = FileWrapper::class;
             throw new InvalidArgumentException("Column of type '$name' can only accept an object of class '$class'");
         }
-        $data = $value->getContent();
-        $compression = function_exists("gzencode") ? "gzip" : "";
-        switch ($compression) {
-            case "gzip":
-                $data = gzencode($data);
-                break;
-        }
-        return \pack(
-            'a255Qa250a5H*',
-            $value->getName(),
-            $value->getSize(),
-            $value->getMimetype(),
-            $compression,
-            bin2hex($data)
-        );
+
+        $metadata = [
+            'name' => $value->getName(),
+            'size' => $value->getSize(),
+            'mimetype' => $value->getMimetype(),
+            'uuid' => $value->getUuid(),
+        ];
+
+        return \json_encode($metadata);
     }
 
     public function convertToPHPValue($value, AbstractPlatform $platform): mixed
@@ -50,13 +44,7 @@ class FileType extends BlobType
         if ($value === null) {
             return null;
         }
-        $unpacked = \unpack('a255name/Qsize/a250mimetype/a5compression/H*content', $value);
-        $filestore = new FileWrapper(trim($unpacked['name']), $unpacked['size'], trim($unpacked['mimetype']));
-        $data = hex2bin($unpacked['content']);
-        if (trim($unpacked['compression']) == 'gzip') {
-            $data = gzdecode($data);
-        }
-        $filestore->setContent($data);
-        return $filestore;
+        extract(\json_decode($value, true));
+        return new FileWrapper($name, $size, $mimetype, $uuid);
     }
 }

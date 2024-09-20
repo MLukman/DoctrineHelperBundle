@@ -6,11 +6,10 @@ use Doctrine\ORM\QueryBuilder;
 
 final class SearchQuery
 {
-
-    public function __construct(protected string $name,
-                                protected ?string $keyword)
-    {
-
+    public function __construct(
+            protected string $name, protected ?string $keyword
+    ) {
+        
     }
 
     public function apply(QueryBuilder $qb, array|string $columns): QueryBuilder
@@ -30,16 +29,15 @@ final class SearchQuery
         foreach ($columns as $column) {
             $conditions[] = $qb->expr()->like($column, ':keyword');
         }
-        return $qb->andWhere($qb->expr()->orX()->addMultiple($conditions))->setParameter('keyword', '%'.$this->keyword.'%');
+        return $qb->andWhere($qb->expr()->orX()->addMultiple($conditions))->setParameter('keyword', '%' . $this->keyword . '%');
     }
 
-    public function applyFulltextSearch(QueryBuilder $qb,
-                                        array $fulltextColumnsWithAlias,
-                                        bool $or = false): QueryBuilder
-    {
+    public function applyFulltextSearch(
+            QueryBuilder $qb, array $fulltextColumnsWithAlias, bool $or = false
+    ): QueryBuilder {
         $commaDelimitedColumns = join(", ", $fulltextColumnsWithAlias);
         $conditions = "MATCH_AGAINST({$commaDelimitedColumns}, :searchterm  'IN BOOLEAN MODE')";
-        $sortColumn = "score".random_int(100, 999);
+        $sortColumn = "score" . random_int(100, 999);
         $qb->addSelect("$conditions as HIDDEN $sortColumn")->addOrderBy($sortColumn, 'DESC');
         $qb->setParameter('searchterm', $this->keyword);
         if ($or) {
@@ -49,27 +47,26 @@ final class SearchQuery
         }
     }
 
-    public function applyBetweenTwoColumns(QueryBuilder $qb,
-                                           string $startColumn,
-                                           string $endColumn): QueryBuilder
-    {
+    public function applyBetweenTwoColumns(
+            QueryBuilder $qb, string $startColumn, string $endColumn
+    ): QueryBuilder {
         if ($this->keyword === "" | $this->keyword === null) {
             return $qb;
         }
         return $qb
-                ->andWhere(
-                    $qb->expr()->orX(
-                        $qb->expr()->andX(
-                            $qb->expr()->lte($startColumn, ':keyword'),
-                            $qb->expr()->gte($endColumn, ':keyword')
-                        ),
-                        $qb->expr()->andX(
-                            $qb->expr()->gte($startColumn, ':keyword'),
-                            $qb->expr()->lte($endColumn, ':keyword')
+                        ->andWhere(
+                                $qb->expr()->orX(
+                                        $qb->expr()->andX(
+                                                $qb->expr()->lte($startColumn, ':keyword'),
+                                                $qb->expr()->gte($endColumn, ':keyword')
+                                        ),
+                                        $qb->expr()->andX(
+                                                $qb->expr()->gte($startColumn, ':keyword'),
+                                                $qb->expr()->lte($endColumn, ':keyword')
+                                        )
+                                )
                         )
-                    )
-                )
-                ->setParameter('keyword', $this->keyword);
+                        ->setParameter('keyword', $this->keyword);
     }
 
     public function getName(): string

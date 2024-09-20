@@ -7,7 +7,6 @@ use Doctrine\DBAL\Types\BlobType;
 
 class ImageType extends BlobType
 {
-
     public function getName(): string
     {
         return "image";

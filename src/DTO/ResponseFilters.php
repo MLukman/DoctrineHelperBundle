@@ -13,10 +13,9 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
  */
 final class ResponseFilters
 {
-
     public function __construct(private Criteria $_criteria)
     {
-
+        
     }
 
     public function getCriteria(): Criteria

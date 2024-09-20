@@ -8,5 +8,5 @@ namespace MLukman\DoctrineHelperBundle\DTO;
  */
 interface RequestBodyTargetInterface
 {
-
+    
 }

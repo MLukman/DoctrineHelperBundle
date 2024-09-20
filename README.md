@@ -4,7 +4,7 @@
 
 ## About
 
-Doctrine Helper Bundle is a Symfony 6.x bundle that provides a few functionalities that simplify the development of request handling logics that involve interacting with data going to and coming out of the database via the popular Doctrine ORM library.
+Doctrine Helper Bundle is a Symfony 7.x bundle that provides a few functionalities that simplify the development of request handling logics that involve interacting with data going to and coming out of the database via the popular Doctrine ORM library.
 
 ## Installation
 
@@ -313,6 +313,23 @@ class Profile
 ```
 
 Similar to `ImageWrapper` above, `FileWrapper` too provides  `fromUploadedFile()`, `getDownloadResponse()` , `setDownloadLink()` and `getDownloadLink()`.
+
+##### 4.2.1 Alternative column type 'fsfile'
+
+If you are not comfortable with the idea of storing files in the database, you can also use alternative column type 'fsfile'. The usage is similar to 'file':
+
+```php
+use MLukman\DoctrineHelperBundle\Type\FileWrapper;
+
+#[ORM\Entity]
+class Profile
+{
+    #[ORM\Column(type: "fsfile", nullable: true)]
+    private ?FileWrapper $resume = null;
+}
+```
+
+With 'fsfile', only the metadata is stored in the database using JSON format, while the actual file content will be stored in the filesystem at path prefix `{appdir}/var/fsfiles/`. On a HA setup, please ensure this path prefix is mounted on a shared storage medium.
 
 #### 4.3 Column type 'encrypted'
 

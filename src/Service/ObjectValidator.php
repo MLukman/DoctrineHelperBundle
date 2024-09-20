@@ -6,17 +6,17 @@ use Symfony\Component\Validator\ConstraintViolation;
 use Symfony\Component\Validator\ConstraintViolationInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
-class ObjectValidator
+final class ObjectValidator
 {
-
     public function __construct(private ValidatorInterface $validator)
     {
-
+        
     }
 
-    public function validate(mixed $entity, bool $asArray = true,
-                             array &$errors = [], array $groups = []): array
-    {
+    public function validate(
+            mixed $entity, bool $asArray = true, array &$errors = [],
+            array $groups = []
+    ): array {
         $validationResults = $this->validator->validate($entity, null, $groups);
         foreach ($validationResults as $violation) {
             /* @var $violation ConstraintViolationInterface */
@@ -24,22 +24,23 @@ class ObjectValidator
         }
         if ($asArray) {
             return array_map(
-                function (array $e) {
-                    return array_map(
-                    function (ConstraintViolation|string $f) {
-                        return ($f instanceof ConstraintViolation) ?
-                        $f->getMessage() : $f;
+                    function (array $e) {
+                        return array_map(
+                        function (ConstraintViolation|string $f) {
+                            return ($f instanceof ConstraintViolation) ?
+                            $f->getMessage() : $f;
+                        },
+                        $e);
                     },
-                    $e);
-                },
-                $errors);
+                    $errors);
         }
         return $errors;
     }
 
-    public function addValidationError(array &$errors, string $prop,
-                                       ConstraintViolationInterface|string $violation)
-    {
+    public function addValidationError(
+            array &$errors, string $prop,
+            ConstraintViolationInterface|string $violation
+    ) {
         if (!isset($errors[$prop])) {
             $errors[$prop] = [];
         }
