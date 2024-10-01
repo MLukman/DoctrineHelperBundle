@@ -132,6 +132,8 @@ This helper bundle has `Service\RequestBodyConverter` which does that!
 First, create a PHP class that extends`DTO\RequestBody`, for example:
 
 ```php
+use MLukman\DoctrineHelperBundle\DTO\RequestBody;
+
 class CommentRequest extends RequestBody
 {
     public ?string $name;
@@ -145,6 +147,9 @@ For simplicity, just let all its properties `public` instead of using setters/ge
 Next, modify the corresponding Entity class to implement `DTO\RequestBodyTargetInterface`. For now there is no method to implement and this interface is just for type-detection. However, the Entity class must either have public properties with the same names as the ones inside the `DTO\RequestBody` subclass or corresponding setter methods or mixture of both. Otherwise the parameters from the request will be ignored. For example:
 
 ```php
+use Doctrine\ORM\Mapping as ORM;
+use MLukman\DoctrineHelperBundle\DTO\RequestBodyTargetInterface;
+
 #[ORM\Entity]
 class Comment implements RequestBodyTargetInterface
 {
@@ -193,11 +198,27 @@ Note: to troubleshoot any conversion issues, this bundle provides a web profiler
 
 ### 3. Simplified Validator
 
-You might be already familiar with `ValidatorInterface` used to validate objects whose classes have been annotated with Symfony's validation such as `@[NotBlank]`. This bundle provides a service that even simplifies the validation process named `ObjectInterface`. Calling this service's `validate()` method will output an array that has already consolidated all the error messages tagged under respective field names, for example:
+You might be already familiar with `ValidatorInterface` used to validate objects whose classes have been annotated with Symfony validations such as `@[NotBlank]`. This bundle provides a service that even simplifies the validation process named `ObjectValidator`. Calling this service's `validate()` method will output an array that has already consolidated all the error messages tagged under respective field names, for example:
 
 ```php
-$validateResult = $objectValidator->validate($object);
-print_r($validateResult);
+#[Route('/comments/post', name: 'app_comments_post')]
+public function comments_post(?CommentRequest $commentRQI, ObjectValidator $objectValidator): Response
+{
+    $comment = new Comment();
+    if ($commentRQI) {
+        $commentRQI->populate($comment);
+	    $validateErrors = $objectValidator->validate($comment);
+        if (empty($validateErrors)) {
+            // Here we can safely save the $comment entity object to database
+            // Then make sure to redirect to another page or this same page
+        }
+        // If we reach here it means $validateErrors has some results
+        // We can pass this array to Twig template form to show the errors to the user
+        // For now we just print_r
+        print_r($validateErrors);
+    }
+
+}
 ```
 
 The output might look like:
@@ -231,9 +252,8 @@ That feature might be helpful if you want to chain validations of multiple objec
 
 To store images in the database, we can simply use the column type "image" in the `ORM\Column` annotation. The corresponding PHP class is `ImageWrapper` which basically wraps around the `Imagine` library (https://imagine.readthedocs.io/). This bundle performs conversion between the database `BLOB` columns and PHP `ImageWrapper` objects. 
 
-The recommended usage of `ImageWrapper` class is to use it in conjunction with  `DTO\RequestBody`  to handle form submissions. Specifying a property whose name matches with the upload field's `name` will automatically load the image from the form submissions. 
-
 ```php
+use Doctrine\ORM\Mapping as ORM;
 use MLukman\DoctrineHelperBundle\Type\ImageWrapper;
 
 #[ORM\Entity]
@@ -244,18 +264,31 @@ class Profile
 }
 ```
 
-To manually store an image into an `ImageWrapper` object, you can just do:
+The recommended usage of `ImageWrapper` class is to use it in conjunction with  `DTO\RequestBody`  to handle form submissions. Specifying a property whose name matches with the upload field's `name` will automatically load the image from the form submissions. 
+
+```php
+use MLukman\DoctrineHelperBundle\DTO\RequestBody;
+
+class ProfileRequest extends RequestBody
+{
+    public ?ImageWrapper $photo = null;
+}
+```
+
+If not using  `DTO\RequestBody`  when handling upload form,  in the code that handle the file upload should first fetch the `Symfony\Component\HttpFoundation\File\UploadedFile` object that refers to that file upload submission and just use the provided static method `fromUploadedFile`:
+
+```php
+$profile->photo = ImageWrapper::fromUploadedFile($uploadedFile);
+```
+
+Or if the image file is already on the server's file system, you can manually load the image file into an `ImageWrapper` object by calling its constructor:
 
 ```php
 // $image can be either a resource stream from fopen or simply the full path to the image file on the server
 $profile->photo = new ImageWrapper($image);
 ```
 
-If the image comes from a file upload form, in the code that handle the file upload should first fetch the `Symfony\Component\HttpFoundation\File\UploadedFile` object that refers to that file upload submission and just use the provided static method `fromUploadedFile`:
-
-```php
-$profile->photo = ImageWrapper::fromUploadedFile($uploadedFile);
-```
+Regardless of which method the `ImageWrapper` object is instantiated with, saving the entity object that host the `ImageWrapper` property as ` ORM\Column(type:"image")` to the database will store the image binary into the corresponding `BLOB`  database column.
 
 Once the image is stored and later fetched from the database, here are a few ways how you can use the image:
 
@@ -331,6 +364,8 @@ class Profile
 
 With 'fsfile', only the metadata is stored in the database using JSON format, while the actual file content will be stored in the filesystem at path prefix `{appdir}/var/fsfiles/`. On a HA setup, please ensure this path prefix is mounted on a shared storage medium.
 
+***Important note: do not convert columns of type 'file' to 'fsfile' and vice versa on entities with existing records as this bundle does not handle the migration of the file contents from the database into the file system and vice versa. The design decision whether to use 'file' or 'fsfile' must be made from the beginning.***
+
 #### 4.3 Column type 'encrypted'
 
 This column type automatically encrypts and decrypts the provided string value before storing to the database and after loading from the database. By default, the encryption key used for the encryption and encryption will be derived from the `APP_SECRET` environment variable, hence you need to sync this environment variable if you migrate data from one environment to another. However, you can also use a different key by calling the static method `\MLukman\DoctrineHelperBundle\Type\EncryptedType::setEncryptionKey($keyString)` during kernel's boot up.
@@ -365,9 +400,9 @@ Next is to prepare a `\Doctrine\ORM\QueryBuilder` pre-configured with the base q
 
 ```php
 #[Route('/admin/users', name: 'app_admin_users')]
-public function users(Paginator $paginator, EntityManagerInterface $em): Response
+public function users(Paginator $paginator, DataStore $ds): Response
 {
-    $qb = $em->getRepository(User::class)->createQueryBuilder('u')
+    $qb = $ds->queryBuilder(User::class, 'u')
         ->andWhere("u.status = 'Active'")
         ->addOrderBy('u.registered', 'DESC');
 }
@@ -377,9 +412,9 @@ Now let's the paginator do the magic by simply calling `paginateResults()` metho
 
 ```php
 #[Route('/admin/users', name: 'app_admin_users')]
-public function users(Paginator $paginator, EntityManagerInterface $em): Response
+public function users(Paginator $paginator, DataStore $ds): Response
 {
-    $qb = $em->getRepository(User::class)->createQueryBuilder('u')
+    $qb = $ds->queryBuilder(User::class, 'u')
         ->andWhere("u.status = 'Active'")
         ->addOrderBy('u.registered', 'DESC');
     return $this->render('admin/users/index.html.twig', [
@@ -412,9 +447,9 @@ Next is to prepare a `\Doctrine\ORM\QueryBuilder` pre-configured with the base q
 
 ```php
 #[Route('/admin/comments', name: 'app_admin_comments')]
-public function comments(SearchQuery $search): Response
+public function comments(SearchQuery $search, DataStore $ds): Response
 {
-    $qb = $em->getRepository(Comment::class)->createQueryBuilder('c')
+    $qb = $ds->queryBuilder(Comment::class, 'c')
         ->andWhere("c.deleted = 0")
         ->addOrderBy('c.posted', 'DESC');
 }
@@ -424,9 +459,9 @@ Next, let the `DTO\SearchQuery` do the magic by calling either `applyLikeSearch(
 
 ```php
 #[Route('/admin/comments', name: 'app_admin_comments')]
-public function comments(SearchQuery $search): Response
+public function comments(SearchQuery $search, DataStore $ds): Response
 {
-    $qb = $em->getRepository(Comment::class)->createQueryBuilder('c')
+    $qb = $ds->queryBuilder(Comment::class, 'c')
         ->andWhere("c.deleted = 0")
         ->addOrderBy('c.posted', 'DESC');
     $search->applyFulltextSearch($qb, ['c.message']);
@@ -437,9 +472,9 @@ Then, pass the query builder result and the `SearchQuery` object to Twig templat
 
 ```php
 #[Route('/admin/comments', name: 'app_admin_comments')]
-public function comments(SearchQuery $search): Response
+public function comments(SearchQuery $search, DataStore $ds): Response
 {
-    $qb = $em->getRepository(Comment::class)->createQueryBuilder('c')
+    $qb = $ds->queryBuilder(Comment::class, 'c')
         ->andWhere("c.deleted = 0")
         ->addOrderBy('c.posted', 'DESC');
     $search->applyFulltextSearch($qb, ['c.message']);
@@ -471,9 +506,9 @@ Next is to prepare a `\Doctrine\ORM\QueryBuilder` pre-configured with the base q
 
 ```php
 #[Route('/admin/assets', name: 'app_admin_assets')]
-public function assets(PreDefinedQueries $status): Response
+public function assets(PreDefinedQueries $status, DataStore $ds): Response
 {
-    $qb = $em->getRepository(Asset::class)->createQueryBuilder('a')
+    $qb = $em->queryBuilder(Asset::class, 'a')
         ->addOrderBy('a.registered', 'DESC');
 }
 ```
@@ -482,9 +517,9 @@ Next, we need to define for each of the filter option the name and how it modifi
 
 ```php
 #[Route('/admin/assets', name: 'app_admin_assets')]
-public function assets(PreDefinedQueries $status): Response
+public function assets(PreDefinedQueries $status, DataStore $ds): Response
 {
-    $qb = $em->getRepository(Asset::class)->createQueryBuilder('a')
+    $qb = $em->queryBuilder(Asset::class, 'a')
         ->addOrderBy('a.registered', 'DESC');
     $status
         ->addQuery('all', fn(QueryBuilder $qb) => $qb)
@@ -498,9 +533,9 @@ Then, pass the query builder result and the `SearchQuery` object to Twig templat
 
 ```php
 #[Route('/admin/assets', name: 'app_admin_assets')]
-public function assets(PreDefinedQueries $status): Response
+public function assets(PreDefinedQueries $status, DataStore $ds): Response
 {
-    $qb = $em->getRepository(Asset::class)->createQueryBuilder('a')
+    $qb = $em->queryBuilder(Asset::class, 'a')
         ->addOrderBy('a.registered', 'DESC');
     $status
         ->addQuery('all', fn(QueryBuilder $qb) => $qb)
@@ -592,7 +627,11 @@ abstract class AuditedEntity implements AuditedEntityInterface
 }
 ```
 
-### 7. UuidEntityTrait
+### 7. ID generator traits
+
+This bundle provides a few traits that can be used to automatically add ID columns to entities which are generated based on specific patterns.
+
+#### 7.1 UuidEntityTrait
 
 This trait provides shortcut to make an entity use UUID as the primary key column. It is as simple as adding to the class and that is all you need:
 
@@ -604,7 +643,71 @@ class Component
 }
 ```
 
+#### 7.2 TimestampIdEntityTrait
 
+This trait provides shortcut to make an entity use timestamps in the format of `YYYYMMDDhhmmssµs`  (from year until microseconds) as the primary key column. It is as simple as adding to the class and that is all you need:
 
+```php
+#[ORM\Entity]
+class Component
+{
+    use \MLukman\DoctrineHelperBundle\Trait\TimestampIdEntityTrait;
+}
+```
 
+It is possible to add prefix and suffix to the generated timestamps by overriding `getIdPrefix()` and `getIdSuffix()` methods in each entity class.
 
+#### 7.3 Hex8IdEntityTrait
+
+This trait provides shortcut to make an entity use a random hexadecimal value of length 8 characters as the primary key column. It is as simple as adding to the class and that is all you need:
+
+```php
+#[ORM\Entity]
+class Component
+{
+    use \MLukman\DoctrineHelperBundle\Trait\Hex8IdEntityTrait;
+}
+```
+
+#### 7.4 Hex16IdEntityTrait
+
+This trait provides shortcut to make an entity use a random hexadecimal value of length 16 characters as the primary key column. It is as simple as adding to the class and that is all you need:
+
+```php
+#[ORM\Entity]
+class Component
+{
+    use \MLukman\DoctrineHelperBundle\Trait\Hex16IdEntityTrait;
+}
+```
+
+### 8. Time zoned DateTime
+
+This bundle provides an attribute `#[\MLukman\DoctrineHelperBundle\Attribute\Timezonify]` that can be used to annotate entity properties of type `DateTime` to activate the following behaviors:
+
+- Convert all datetimes used with such properties into UTC timezone before saving to the database
+- Convert the UTC datetimes saved in the database to the application time zone which can be either:
+  - Set to each user session/request by calling the method `\MLukman\DoctrineHelperBundle\Service\Timezonify::setTimezone(string|DateTimeZone $tz)` method
+  - Default to the time zone specified in the environment variable `APP_TIMEZONE`
+  - Fallback to the default time zone set in the PHP environment which is returned by the native function `date_default_timezone_get()` 
+
+Sample usage:
+
+```php
+#[ORM\Entity]
+class Component
+{
+    #[\MLukman\DoctrineHelperBundle\Attribute\Timezonify]
+    protected \DateTime $createdDate;
+}
+```
+
+Note: adding this attribute to entities with existing database records will have unintended effect of the stored datetimes will be skewed. To solve this issue, you would need to manually patch those datetimes to UTC time zone first before adding this attribute,
+
+### And more to come!
+
+This bundle will be updated and improved to add more features. Feel free to star and/or watch this repo!
+
+## Contributing
+
+I am open for any ideas to enhance this bundle further. Feel free to raise your feature requests as issues on this GitHub repo.

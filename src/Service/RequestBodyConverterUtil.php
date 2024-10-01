@@ -10,7 +10,6 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
 use Symfony\Component\Serializer\SerializerInterface;
-use Symfony\Contracts\Service\Attribute\Required;
 
 /**
  * This is the Util class that assists RequestBodyConverter.
@@ -22,20 +21,18 @@ class RequestBodyConverterUtil
 {
     protected $processings = [];
     protected $errors = [];
-    protected SerializerInterface $serializer;
 
-    #[Required]
-    public function requiredByRequestBodyConverterUtil(SerializerInterface $serializer)
+    public function __construct(protected SerializerInterface $serializer)
     {
-        $this->serializer = $serializer;
+
     }
 
     public function parse(array $request, string $className): mixed
     {
         // Filter out empty strings & empty objects
         $toDeserialize = static::array_filter_recursive($request, function ($val) {
-                    return !($val === "");
-                });
+            return !($val === "");
+        });
         // Actual deserialization is handled by Symfony serializer
         return $this->serializer->deserialize(\json_encode($toDeserialize), $className, 'json', [
                     ObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true,
@@ -82,10 +79,13 @@ class RequestBodyConverterUtil
 
             // collect the type(s) supported by the target property
             $ftype = $targetReflection->getProperty($fkey)->getType();
-            $types = ($ftype instanceof ReflectionNamedType ? [$ftype->getName()] : ($ftype instanceof ReflectionUnionType ? array_reduce($ftype->getTypes(),
-                            function ($carry, ReflectionNamedType $type) {
-                                return $carry + [$type->getName()];
-                            }, []) : []));
+            $types = ($ftype instanceof ReflectionNamedType ? [$ftype->getName()] : ($ftype instanceof ReflectionUnionType ? array_reduce(
+                $ftype->getTypes(),
+                function ($carry, ReflectionNamedType $type) {
+                    return $carry + [$type->getName()];
+                },
+                []
+            ) : []));
 
             // check & process whether any of the type(s) implements FromUploadedFileInterface
             foreach ($types as $type) {
@@ -119,7 +119,7 @@ class RequestBodyConverterUtil
         return $details;
     }
 
-    static function array_filter_recursive($input, $callback = null)
+    public static function array_filter_recursive($input, $callback = null)
     {
         foreach ($input as &$value) {
             if (is_array($value)) {
@@ -140,7 +140,9 @@ class RequestBodyConverterUtil
     }
 
     public function addParameterProcessing(
-            string $class, string $name, array $details
+        string $class,
+        string $name,
+        array $details
     ): void {
         $this->processings[] = [
             'class' => $class,

@@ -4,6 +4,7 @@ namespace MLukman\DoctrineHelperBundle\Tests\App;
 
 use MLukman\DoctrineHelperBundle\DTO\RequestBody;
 use MLukman\DoctrineHelperBundle\DTO\RequestBodyTargetInterface;
+use MLukman\DoctrineHelperBundle\Service\DataStore;
 
 class SampleRequestBody extends RequestBody
 {
@@ -13,18 +14,23 @@ class SampleRequestBody extends RequestBody
     public ?SampleRequestBody $nested;
     public ?string $fromScalar;
     public ?array $attributes;
+    public ?string $stringToArray;
+    public ?bool $date;
 
     /**
      * @var SampleRequestBody[] $children
      */
     public ?array $children;
 
-    protected function populateChild(RequestBodyTargetInterface $target,
-                                     $targetChildName,
-                                     RequestBody $requestBodyChild,
-                                     ?RequestBodyTargetInterface $targetChild = null,
-                                     $key = null, $context = null): ?RequestBodyTargetInterface
-    {
+    protected function populateChild(
+        RequestBodyTargetInterface $target,
+        string $targetChildName,
+        RequestBody $requestBodyChild,
+        ?RequestBodyTargetInterface $targetChild = null,
+        ?string $key = null,
+        mixed $context = null,
+        ?DataStore $datastore = null
+    ): ?RequestBodyTargetInterface {
         if (in_array($targetChildName, ['nested', 'children']) && !$targetChild) {
             return $requestBodyChild->populate(new SampleRequestBodyTarget(), $context);
         }
@@ -32,10 +38,13 @@ class SampleRequestBody extends RequestBody
     }
 
     protected function createRequestBodyTargetInterfaceFromScalarProperty(
-        RequestBodyTargetInterface $target, string $property_name,
-        mixed $scalar_value, string $requestBodyTargetClass,
-        mixed $context = null): ?RequestBodyTargetInterface
-    {
+        RequestBodyTargetInterface $target,
+        string $property_name,
+        mixed $scalar_value,
+        string $requestBodyTargetClass,
+        mixed $context = null,
+        ?DataStore $datastore = null
+    ): ?RequestBodyTargetInterface {
         if ($requestBodyTargetClass == SampleRequestBodyTarget::class) {
             $child = new SampleRequestBodyTarget();
             $child->name = strval($scalar_value);

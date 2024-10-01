@@ -14,6 +14,7 @@ use Symfony\Component\Config\Loader\LoaderInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\HttpKernel\Kernel;
+use Symfony\Component\Serializer\SerializerInterface;
 
 class TestKernel extends Kernel
 {
@@ -24,6 +25,7 @@ class TestKernel extends Kernel
         RequestBodyConverter::class,
         ResponseFiltersConverter::class,
         SearchQueryConverter::class,
+        SerializerInterface::class,
     ];
 
     public function registerBundles(): iterable
@@ -38,7 +40,8 @@ class TestKernel extends Kernel
     {
         $loader->load(function (ContainerBuilder $container, string $env = null) {
             foreach ($this->services as $service) {
-                $container->setDefinition($service,
+                $container->setDefinition(
+                    $service,
                     (new Definition($service))
                         ->setPublic(true)
                         ->setAutowired(true)
