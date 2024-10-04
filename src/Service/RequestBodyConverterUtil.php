@@ -8,7 +8,15 @@ use ReflectionNamedType;
 use ReflectionUnionType;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\PropertyInfo\Extractor\ConstructorExtractor;
+use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
+use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
+use Symfony\Component\Serializer\Encoder\JsonEncoder;
+use Symfony\Component\Serializer\Normalizer\ArrayDenormalizer;
+use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
+use Symfony\Component\Serializer\Serializer;
 use Symfony\Component\Serializer\SerializerInterface;
 
 /**
@@ -22,9 +30,28 @@ class RequestBodyConverterUtil
     protected $processings = [];
     protected $errors = [];
 
-    public function __construct(protected SerializerInterface $serializer)
+    public function __construct(protected ?SerializerInterface $serializer)
     {
-
+        if (!$this->serializer) {
+            $phpDocExtractor = new PhpDocExtractor();
+            $typeExtractor = new PropertyInfoExtractor(
+                typeExtractors:
+                    [
+                        new ConstructorExtractor([$phpDocExtractor]),
+                        $phpDocExtractor,
+                        new ReflectionExtractor(),
+                    ]
+            );
+            $this->serializer = new Serializer(
+                normalizers:
+                    [
+                        new ObjectNormalizer(propertyTypeExtractor: $typeExtractor),
+                        new DateTimeNormalizer(),
+                        new ArrayDenormalizer(),
+                    ],
+                encoders: ['json' => new JsonEncoder()]
+            );
+        }
     }
 
     public function parse(array $request, string $className): mixed

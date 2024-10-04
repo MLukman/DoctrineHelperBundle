@@ -17,17 +17,17 @@ class EncryptedType extends TextType
     protected static function getEncryptionKey(int $length = 32): string
     {
         if (empty(static::$encryptionKey ?? null)) {
-            static::$encryptionKey = $_ENV['APP_SECRET'] ?? "Lorem ipsum dolor sit amet eget.";
+            static::$encryptionKey = $_ENV['APP_SECRET'] ?? die("Server admin needs to define APP_SECRET environment variable");
         }
         return substr(
-                str_repeat(
-                        static::$encryptionKey,
-                        intval(
-                                ceil(1.0 * $length / strlen(static::$encryptionKey))
-                        )
-                ),
-                0,
-                $length
+            str_repeat(
+                static::$encryptionKey,
+                intval(
+                    ceil(1.0 * $length / strlen(static::$encryptionKey))
+                )
+            ),
+            0,
+            $length
         );
     }
 
@@ -65,7 +65,7 @@ class EncryptedType extends TextType
                 return openssl_decrypt($ciphertext_raw, $cipher, $key, OPENSSL_RAW_DATA, $iv);
             }
         } catch (\Exception $ex) {
-            
+
         }
         return null;
     }
@@ -75,7 +75,7 @@ class EncryptedType extends TextType
         return static::encrypt($value);
     }
 
-    public function convertToPHPValue($value, AbstractPlatform $platform): mixed
+    public function convertToPHPValue($value, AbstractPlatform $platform): ?string
     {
         return static::decrypt($value) ?? $value;
     }

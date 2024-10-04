@@ -92,6 +92,11 @@ abstract class RequestBody
         ?DataStore $datastore = null
     ): mixed {
         foreach ($target_property_types as $type_name => $target_property_type) {
+            // target expects array but source is string
+            if ($type_name == 'array' && \is_string($request_property_value)) {
+                return \array_map(fn ($v) => trim($v), \explode("\n", $request_property_value));
+            }
+
             /* @var $target_property_type_refl ReflectionClass */
             $target_property_type_refl = \class_exists($type_name) ? new ReflectionClass($type_name) : null;
 
@@ -111,11 +116,6 @@ abstract class RequestBody
                 ) { // if request property is RequestBody
                     return $this->populateChild($target, $property_name, $request_property_value, $target_property_value, null, $context, $datastore);
                 }
-            }
-
-            // target expects array but source is string
-            if ($type_name == 'array' && \is_string($request_property_value)) {
-                return \array_map(fn ($v) => trim($v), \explode("\n", $request_property_value));
             }
 
             // target expects array or is instance of ArrayAccess (e.g. Doctrine Collection)

@@ -45,7 +45,7 @@ class FileType extends BlobType
         );
     }
 
-    public function convertToPHPValue($value, AbstractPlatform $platform): mixed
+    public function convertToPHPValue($value, AbstractPlatform $platform): ?FileWrapper
     {
         if ($value === null) {
             return null;

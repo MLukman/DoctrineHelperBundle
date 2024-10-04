@@ -12,7 +12,7 @@ class ImageType extends BlobType
         return "image";
     }
 
-    public function convertToPHPValue($value, AbstractPlatform $platform): mixed
+    public function convertToPHPValue($value, AbstractPlatform $platform): ?ImageWrapper
     {
         $blob = parent::convertToPHPValue($value, $platform);
         return $blob ? new ImageWrapper($blob) : null;

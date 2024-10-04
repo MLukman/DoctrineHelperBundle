@@ -39,7 +39,7 @@ class FSFileType extends JsonType
         return \json_encode($metadata);
     }
 
-    public function convertToPHPValue($value, AbstractPlatform $platform): mixed
+    public function convertToPHPValue($value, AbstractPlatform $platform): ?FileWrapper
     {
         if ($value === null) {
             return null;

@@ -18,6 +18,6 @@ class TimestampIdGenerator extends AbstractIdGenerator
         if (\method_exists($entity, 'getIdSuffix')) {
             $id .= $entity->getIdSuffix();
         }
-        return $id;
+        return substr($id, 0, 50);
     }
 }
