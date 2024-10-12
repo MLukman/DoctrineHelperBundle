@@ -45,24 +45,25 @@ class DataStore
      * @param type $id_or_criteria
      * @return mixed
      */
-    public function queryOne(
-            string $entity, $id_or_criteria, array $orderBy = null
-    ): mixed {
+    public function queryOne(string $entity, $id_or_criteria, array $orderBy = []): mixed
+    {
         if (empty($id_or_criteria)) {
             return null;
         }
 
-        return (is_array($id_or_criteria) ?
-                $this->repo($entity)->findOneBy($id_or_criteria, $orderBy) :
-                $this->repo($entity)->find($id_or_criteria));
+        if (is_array($id_or_criteria)) {
+            $result = $this->queryMany($entity, $id_or_criteria, $orderBy, 1);
+            return $result[0] ?? null;
+        } else {
+            return $this->repo($entity)->find($id_or_criteria);
+        }
     }
 
-    public function cachedQueryOne(
-            string $entity, $id_or_criteria, array $orderBy = null
-    ): mixed {
-        $signature = md5(serialize([$entity, $id_or_criteria, $orderBy]));
+    public function cachedQueryOne(string $entity, $id_or_criteria, array $sort = []): mixed
+    {
+        $signature = md5(serialize([$entity, $id_or_criteria, $sort]));
         if (!isset($this->caches[$signature]) || is_null($this->caches[$signature])) {
-            $this->caches[$signature] = $this->queryOne($entity, $id_or_criteria, $orderBy);
+            $this->caches[$signature] = $this->queryOne($entity, $id_or_criteria, $sort);
         }
         return $this->caches[$signature];
     }
@@ -74,11 +75,17 @@ class DataStore
      * @param array $sort
      * @return array
      */
-    public function queryMany(
-            string $entity, array $criteria = [], array $sort = [],
-            $limit = null
-    ): array {
-        return $this->repo($entity)->findBy($criteria, $sort, $limit);
+    public function queryMany(string $entity, array $criteria = [], array $sort = [], $limit = null): array
+    {
+        $qb = $this->queryBuilder($entity, 'a');
+        $this->applyCriteriaToQueryBuilder($criteria, $qb);
+        foreach ($sort as $col => $ord) {
+            $qb->addOrderBy("a.$col", $ord);
+        }
+        if ($limit > 0) {
+            $qb->setMaxResults($limit);
+        }
+        return $qb->getQuery()->execute();
     }
 
     /**
@@ -89,7 +96,43 @@ class DataStore
      */
     public function count(string $entity, array $criteria = []): int
     {
-        return $this->repo($entity)->count($criteria);
+        $qb = $this->queryBuilder($entity, 'a')->select('count(a)');
+        $this->applyCriteriaToQueryBuilder($criteria, $qb);
+        return $qb->getQuery()->getSingleScalarResult();
+    }
+
+    protected function applyCriteriaToQueryBuilder(array $criteria, QueryBuilder $qb, bool $or = false): void
+    {
+        $alias = $qb->getRootAliases()[0];
+        $applyer = $or ? fn ($qb, $where) => $qb->orWhere($where) : fn ($qb, $where) => $qb->andWhere($where);
+        foreach ($criteria as $col => $val) {
+            $opmatch = [];
+            if (preg_match('/^(>=|<=|>|<|!)(.*)$/', $col, $opmatch)) {
+                $op = $opmatch[1] == '!' ? '!=' : $opmatch[1];
+                $col = $opmatch[2];
+            } else {
+                $op = '=';
+            }
+
+            if (is_null($val)) {
+                switch ($op) { // only '!' and '=' support null values
+                    case '!=':
+                        $applyer($qb, "$alias.$col IS NOT NULL");
+                        break;
+                    case '=':
+                        $applyer($qb, "$alias.$col IS NULL");
+                        break;
+                }
+            } else {
+                if (is_array($val)) {
+                    $op = $op == '!=' ? "NOT IN" : "IN";
+                    $applyer($qb, "$alias.$col $op (:$col)");
+                } else {
+                    $applyer($qb, "$alias.$col $op :$col");
+                }
+                $qb->setParameter($col, $val);
+            }
+        }
     }
 
     /**
@@ -100,14 +143,10 @@ class DataStore
      * @param type $limit
      * @return array
      */
-    public function queryUsingOr(
-            string $entity, array $filters = [], array $sort = [],
-            int $limit = 0
-    ): array {
+    public function queryUsingOr(string $entity, array $filters = [], array $sort = [], int $limit = 0): array
+    {
         $qb = $this->queryBuilder($entity, 'e');
-        foreach ($filters as $field => $value) {
-            $qb->orWhere("e.$field = :$field")->setParameter($field, $value);
-        }
+        $this->applyCriteriaToQueryBuilder($filters, $qb, true);
         if ($limit > 0) {
             $qb->setMaxResults($limit);
         }
@@ -125,24 +164,18 @@ class DataStore
      * @param array $filters Optional filter conditions (added as WHERE key = value)
      * @return array The search results
      */
-    public function fulltextSearch(
-            $entity, Array $fulltextColumns, string $searchterm,
-            Array $filters = []
-    ): QueryBuilder {
+    public function fulltextSearch($entity, array $fulltextColumns, string $searchterm, array $filters = []): QueryBuilder
+    {
         $commaDelimitedColumns = join(", ", array_map(function ($item) {
-                    return "e.$item";
-                }, $fulltextColumns));
-        $repo = $this->em->getRepository($entity);
+            return "e.$item";
+        }, $fulltextColumns));
         /** @var QueryBuilder $qb */
-        $qb = $repo->createQueryBuilder('e')
-                ->addSelect("MATCH_AGAINST ({$commaDelimitedColumns}, :searchterm 'IN BOOLEAN MODE') as HIDDEN score")
-                ->add('where', "MATCH_AGAINST({$commaDelimitedColumns}, :searchterm  'IN BOOLEAN MODE') > 0")
-                ->setParameter('searchterm', $searchterm)
-                ->orderBy('score', 'desc');
-        foreach ($filters as $field => $value) {
-            $qb->andWhere("e.{$field} = :{$field}_value")
-                    ->setParameter("{$field}_value", $value);
-        }
+        $qb = $this->queryBuilder($entity, 'e')
+            ->addSelect("MATCH_AGAINST ({$commaDelimitedColumns}, :searchterm 'IN BOOLEAN MODE') as HIDDEN score")
+            ->add('where', "MATCH_AGAINST({$commaDelimitedColumns}, :searchterm  'IN BOOLEAN MODE') > 0")
+            ->setParameter('searchterm', $searchterm)
+            ->orderBy('score', 'desc');
+        $this->applyCriteriaToQueryBuilder($filters, $qb);
         return $qb;
     }
 
@@ -154,9 +187,8 @@ class DataStore
      * @param array $matcherFields Optional list of fields that need to match with those of the current
      * @return mixed The previous entity or null
      */
-    public function getPrevious(
-            mixed $current, string $sortedBy, array $matcherFields = []
-    ): mixed {
+    public function getPrevious(mixed $current, string $sortedBy, array $matcherFields = []): mixed
+    {
         $qb = $this->previousNextQueryBuilder($current, $sortedBy, $matcherFields, 'prev');
         return $qb->getQuery()->getOneOrNullResult();
     }
@@ -169,9 +201,8 @@ class DataStore
      * @param array $matcherFields Optional list of fields that need to match with those of the current
      * @return mixed The next entity or null
      */
-    public function getNext(
-            mixed $current, string $sortedBy, array $matcherFields = []
-    ): mixed {
+    public function getNext(mixed $current, string $sortedBy, array $matcherFields = []): mixed
+    {
         $qb = $this->previousNextQueryBuilder($current, $sortedBy, $matcherFields, 'next');
         return $qb->getQuery()->getOneOrNullResult();
     }
@@ -184,9 +215,8 @@ class DataStore
      * @param array $matcherFields Optional list of fields that need to match with those of the current
      * @return int The count
      */
-    public function countPrevious(
-            mixed $current, string $sortedBy, array $matcherFields = []
-    ): int {
+    public function countPrevious(mixed $current, string $sortedBy, array $matcherFields = []): int
+    {
         $qb = $this->previousNextQueryBuilder($current, $sortedBy, $matcherFields, 'prev');
         return $qb->select('COUNT(1)')->getQuery()->getSingleScalarResult();
     }
@@ -199,23 +229,20 @@ class DataStore
      * @param array $matcherFields Optional list of fields that need to match with those of the current
      * @return int The count
      */
-    public function countNext(
-            mixed $current, string $sortedBy, array $matcherFields = []
-    ): int {
+    public function countNext(mixed $current, string $sortedBy, array $matcherFields = []): int
+    {
         $qb = $this->previousNextQueryBuilder($current, $sortedBy, $matcherFields, 'next');
         return $qb->select('COUNT(1)')->getQuery()->getSingleScalarResult();
     }
 
-    protected function previousNextQueryBuilder(
-            mixed $current, string $sortedBy, array $matcherFields = [],
-            string $prevOrNext = 'next'
-    ): QueryBuilder {
+    protected function previousNextQueryBuilder(mixed $current, string $sortedBy, array $matcherFields = [], string $prevOrNext = 'next'): QueryBuilder
+    {
         $class = get_class($current);
         $qb = $this->queryBuilder($class, 'e')
-                ->join($class, 'c', 'WITH', 'c = :current')
-                ->andWhere('e != c')
-                ->setParameter('current', $current)
-                ->setMaxResults(1);
+            ->join($class, 'c', 'WITH', 'c = :current')
+            ->andWhere('e != c')
+            ->setParameter('current', $current)
+            ->setMaxResults(1);
         foreach ($matcherFields as $field) {
             $qb->andWhere("e.{$field} = c.{$field}");
         }
@@ -223,11 +250,11 @@ class DataStore
             case 'prev':
             case 'previous':
                 $qb->andWhere("e.{$sortedBy} <= c.{$sortedBy}")
-                        ->orderBy("e.{$sortedBy}", 'DESC');
+                    ->orderBy("e.{$sortedBy}", 'DESC');
                 break;
             case 'next':
                 $qb->andWhere("e.{$sortedBy} >= c.{$sortedBy}")
-                        ->orderBy("e.{$sortedBy}", 'ASC');
+                    ->orderBy("e.{$sortedBy}", 'ASC');
                 break;
         }
         return $qb;

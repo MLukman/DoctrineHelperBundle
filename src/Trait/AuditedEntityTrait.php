@@ -20,6 +20,9 @@ trait AuditedEntityTrait
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     protected ?DateTimeInterface $updated = null;
 
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, options: ["default" => "CURRENT_TIMESTAMP"])]
+    protected ?DateTimeInterface $saved = null;
+
     public function getCreated(): ?DateTimeInterface
     {
         return $this->created;
@@ -33,24 +36,31 @@ trait AuditedEntityTrait
     public function setCreated(?DateTimeInterface $created): self
     {
         $this->created = $created;
+        $this->saved = $created;
         return $this;
     }
 
     public function setUpdated(?DateTimeInterface $updated): self
     {
         $this->updated = $updated;
+        $this->saved = $updated;
         return $this;
+    }
+
+    public function getSaved(): ?DateTimeInterface
+    {
+        return $this->saved;
     }
 
     /** Class to override */
     public function setCreatedBy(?\Symfony\Component\Security\Core\User\UserInterface $createdBy)
     {
-        
+
     }
 
     /** Class to override */
     public function setUpdatedBy(?\Symfony\Component\Security\Core\User\UserInterface $updatedBy)
     {
-        
+
     }
 }
