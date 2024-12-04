@@ -18,7 +18,7 @@ class FSFileType extends JsonType
         return "fsfile";
     }
 
-    public function convertToDatabaseValue($value, AbstractPlatform $platform): mixed
+    public function convertToDatabaseValue(mixed $value, AbstractPlatform $platform): ?string
     {
         if ($value === null) {
             return null;
@@ -39,7 +39,7 @@ class FSFileType extends JsonType
         return \json_encode($metadata);
     }
 
-    public function convertToPHPValue($value, AbstractPlatform $platform): ?FileWrapper
+    public function convertToPHPValue(mixed $value, AbstractPlatform $platform): ?FileWrapper
     {
         if ($value === null) {
             return null;

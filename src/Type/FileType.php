@@ -18,7 +18,7 @@ class FileType extends BlobType
         return "file";
     }
 
-    public function convertToDatabaseValue($value, AbstractPlatform $platform): mixed
+    public function convertToDatabaseValue(mixed $value, AbstractPlatform $platform): mixed
     {
         if ($value === null) {
             return null;
@@ -45,7 +45,7 @@ class FileType extends BlobType
         );
     }
 
-    public function convertToPHPValue($value, AbstractPlatform $platform): ?FileWrapper
+    public function convertToPHPValue(mixed $value, AbstractPlatform $platform): ?FileWrapper
     {
         if ($value === null) {
             return null;
