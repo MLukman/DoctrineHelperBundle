@@ -4,6 +4,7 @@ namespace MLukman\DoctrineHelperBundle\Service;
 
 use Closure;
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
+use Doctrine\ORM\Event\PostFlushEventArgs;
 use Doctrine\ORM\Event\PostLoadEventArgs;
 use Doctrine\ORM\Event\PostPersistEventArgs;
 use Doctrine\ORM\Event\PostRemoveEventArgs;
@@ -22,18 +23,20 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 #[AsDoctrineListener(event: Events::postUpdate)]
 #[AsDoctrineListener(event: Events::postLoad)]
 #[AsDoctrineListener(event: Events::postRemove)]
+#[AsDoctrineListener(event: Events::postFlush)]
 final class FSFileTypeSubscriber
 {
-    protected $postUpdateToDelete = [];
+    protected array $filesToDelete = [];
+    protected array $filesToStore = [];
 
     public function __construct(#[Autowire('%kernel.project_dir%')] private string $dir)
     {
-
+        
     }
 
     public function postPersist(PostPersistEventArgs $args): void
     {
-        $this->storeFile($args->getObject());
+        $this->flagFilesToStore($args->getObject());
     }
 
     public function preUpdate(PreUpdateEventArgs $args): void
@@ -42,9 +45,10 @@ final class FSFileTypeSubscriber
         // store the path to the old path to be deieted during postUpdate event
         $this->iterateFSFileProperties(
             $args->getObject(),
-            function (string $name, ?FileWrapper $value, string $directory) use ($args) {
-                if (!$value && ($oldval = $args->getOldValue($name))) {
-                    $this->postUpdateToDelete[] = $directory . $oldval->getUuid();
+            function (string $name, ?FileWrapper $file, string $directory) use ($args) {
+                if ($args->hasChangedField($name) && ($oldval = $args->getOldValue($name)) &&
+                    (is_null($file) || $file->getUuid() != $oldval->getUuid())) {
+                    $this->filesToDelete[] = $directory . $oldval->getUuid();
                 }
             }
         );
@@ -52,24 +56,41 @@ final class FSFileTypeSubscriber
 
     public function postUpdate(PostUpdateEventArgs $args): void
     {
+        // store the new files
+        $this->flagFilesToStore($args->getObject());
+    }
+
+    public function postFlush(PostFlushEventArgs $args): void
+    {
         // delete files previously identified during preUpdate event
-        foreach ($this->postUpdateToDelete as $filename) {
+        foreach ($this->filesToDelete as $filename) {
             if (file_exists($filename)) {
                 unlink($filename);
             }
         }
-        $this->postUpdateToDelete = [];
-        // store the new files
-        $this->storeFile($args->getObject());
+        $this->filesToDelete = [];
+
+        // store files previously flagged
+        foreach ($this->filesToStore as $filepath => $content) {
+            // Save as .new file before renaming to the correct filename.
+            // This trick is necessary if the $content is a resource that comes 
+            // from fopen of  the same filename as the one we are writing to.
+            file_put_contents($filepath . '.new', $content);
+            if (is_resource($content)) {
+                fclose($content);
+            }
+            rename($filepath . '.new', $filepath);
+        }
+        $this->filesToStore = [];
     }
 
     public function postLoad(PostLoadEventArgs $args): void
     {
         $this->iterateFSFileProperties(
             $args->getObject(),
-            function (string $name, ?FileWrapper $value, string $directory) {
-                if ($value && file_exists($filepath = $directory . $value->getUuid())) {
-                    $value->setStreamCallback(fn () => fopen($filepath, "rb"));
+            function (string $name, ?FileWrapper $file, string $directory) {
+                if ($file && file_exists($filepath = $directory . $file->getUuid())) {
+                    $file->setStreamCallback(fn() => fopen($filepath, "rb"));
                 }
             }
         );
@@ -79,21 +100,21 @@ final class FSFileTypeSubscriber
     {
         $this->iterateFSFileProperties(
             $args->getObject(),
-            function (string $name, ?FileWrapper $value, string $directory) {
-                if ($value && file_exists($filepath = $directory . $value->getUuid())) {
-                    unlink($filepath);
+            function (string $name, ?FileWrapper $file, string $directory) {
+                if ($file && file_exists($filepath = $directory . $file->getUuid())) {
+                    $this->filesToDelete[] = $filepath;
                 }
             }
         );
     }
 
-    protected function storeFile(object $entity)
+    protected function flagFilesToStore(object $entity)
     {
         $this->iterateFSFileProperties(
             $entity,
-            function (string $name, ?FileWrapper $value, string $directory) {
-                if ($value) {
-                    file_put_contents($directory . $value->getUuid(), $value->getContent());
+            function (string $name, ?FileWrapper $file, string $directory) {
+                if ($file) {
+                    $this->filesToStore[$directory . $file->getUuid()] = $file->getStream();
                 }
             }
         );

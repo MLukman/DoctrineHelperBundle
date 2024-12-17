@@ -198,11 +198,11 @@ Note: to troubleshoot any conversion issues, this bundle provides a web profiler
 
 ### 3. Simplified Validator
 
-You might be already familiar with `ValidatorInterface` used to validate objects whose classes have been annotated with Symfony validations such as `@[NotBlank]`. This bundle provides a service that even simplifies the validation process named `ObjectValidator`. Calling this service's `validate()` method will output an array that has already consolidated all the error messages tagged under respective field names, for example:
+You might be already familiar with `ValidatorInterface` used to validate objects whose classes have been annotated with Symfony validations such as `@[NotBlank]`. This bundle provides a service that even simplifies the validation process named `ObjectValidatorV2`. Calling this service's `validate()` method will output an array that has already consolidated all the error messages tagged under respective field names, for example:
 
 ```php
 #[Route('/comments/post', name: 'app_comments_post')]
-public function comments_post(?CommentRequest $commentRQI, ObjectValidator $objectValidator): Response
+public function comments_post(?CommentRequest $commentRQI, ObjectValidatorV2 $objectValidator): Response
 {
     $comment = new Comment();
     if ($commentRQI) {
@@ -238,10 +238,10 @@ The output might look like:
 It is also possible to manually construct the validation errors array by calling `addValidationError()` method:
 
 ```php
-$validateResult = [];
-$objectValidator->addValidationError($validateResult, "quantity", "This value should not be blank.");
-$objectValidator->addValidationError($validateResult, "quantity", "This value should be positive.");
-$objectValidator->addValidationError($validateResult, "reference", "Value must be unique.");
+$objectValidator->addValidationError("quantity", "This value should not be blank.");
+$objectValidator->addValidationError("quantity", "This value should be positive.");
+$objectValidator->addValidationError("reference", "Value must be unique.");
+$validateResult = $objectValidator->getErrors();
 ```
 
 That feature might be helpful if you want to chain validations of multiple objects, or if you have custom validations that need to be implemented outside of the objects.
@@ -325,7 +325,7 @@ Once the image is stored and later fetched from the database, here are a few way
 However, for a simple resizing of the image, `ImageWrapper` already provides the `resize($maxWidth, $maxHeight, $keepAspectRatio)` method:
 
 ```php
-$profile->photo->resize(400,300,false)->getBase64DataUrl();
+$profile->photo->resize(400, 300, ImageWrapper::RESIZE_FIT)->getBase64DataUrl();
 ```
 
 #### 4.2 Column type 'file' & class FileWrapper   
@@ -569,30 +569,45 @@ Finally, prepare the UI elements that provides a list of filter options which na
 
 ### 6. Automatic audit of entities creator, creation date time, updater and update date time
 
-By making entity classes implement `\MLukman\DoctrineHelperBundle\Interface\AuditedEntityInterface`  and use `\MLukman\DoctrineHelperBundle\Trait\AuditedEntityTrait`, all creations and updates of the entity objects will be automatically stored along with other fields.
+This bundle provides two interfaces that simplify auditing of entities. Just by making the entities implement these two interfaces, any creation and modification of the entities will be recorded automatically by the Doctrine entity listener that has been built into this bundle.
 
-For creation date and update date fields, those interface & trait combination already covers everything needed from the entity columns and their getters & setters to the event subscribers needed to hook to Doctrine's `PrePersist` and `PreUpdate` events.
+#### AuditedEntityDatesInterface
 
-For creator and updater columns, however, those interface & trait combination only provides the event subscribers but the entity columns need to be defined by the implementing entity classes. This design was decided because there is no way for this bundle to know what would be the entity class that will be used in the implementing applications. For that reason, the implementation applications need to implement the remaining two methods of the `AuditedEntityInterface` as well as the entity column definitions for `$createdBy` and `$updatedBy`:
+This interface defines three getter & two setter methods:
 
-```php 
-interface AuditedEntityInterface
-{
+- `getCreated(): ?\DateTimeInterface` - return the creation date of the entity
+- `getUpdated(): ?\DateTimeInterface` - return the modification date of the entity
+- `getSaved(): ?\DateTimeInterface` - return latest modification date or the creation date of the entity
+- `setCreated(?\DateTimeInterface $created)` - set the creation date of the entity
+- `setUpdated(?\DateTimeInterface $updated)` - set the modification date of the entity
 
-    public function setCreatedBy(?\Symfony\Component\Security\Core\User\UserInterface $createdBy);
+This interface has a companion trait `AuditedEntityDatesTrait` that can be used to fulfill the interface as well as define the entity properties and their corresponding columns.
 
-    public function setUpdatedBy(?\Symfony\Component\Security\Core\User\UserInterface $updatedBy);
-}
-```
-
-For example, the following `MappedSuperclass` is taken from an application where the class that implements `UserInterface` is called `Login` with a `ManyToOne` relation `$user` to the `User` class:
+Below is a simple example:
 
 ```php
 #[ORM\MappedSuperclass]
-abstract class AuditedEntity implements AuditedEntityInterface
+abstract class AuditedEntity implements AuditedEntityDatesInterface
 {
-    use AuditedEntityTrait;
+    use AuditedEntityDatesTrait;
+}
+```
 
+#### AuditedEntityByInterface
+
+This interface defines two setter methods:
+
+- `setCreatedBy(?UserInterface $createdBy)` - set the creator of the entity
+- `setUpdatedBy(?UserInterface $updatedBy)` - set the updater of the entity
+
+Unlike `AuditedEntityDatesInterface`, this interface `AuditedEntityByInterface` does not come with a companion trait. This is because there is no way for this bundle to know what would be the entity class that will be used in the implementing applications. For that reason, the implementation applications need to implement this interface accordingly.
+
+Below is an example where the class that implements `UserInterface` is `Login` while the creator and updater info that need to be stored in the entities have class `User` where one `User` can have multiple `Login`:
+
+```php
+#[ORM\MappedSuperclass]
+abstract class AuditedEntity implements AuditedEntityByInterface
+{
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(onDelete: 'SET NULL')]
     protected ?User $createdBy = null;

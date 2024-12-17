@@ -71,10 +71,8 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
      * @param resource|string|ImageInterface $image
      * @param type $outputFormat
      */
-    public function __construct(
-            mixed $image = null, ?string $outputFormat = null,
-            string $engineType = 'gd'
-    ) {
+    public function __construct(mixed $image = null, ?string $outputFormat = null, string $engineType = 'gd')
+    {
         $this->engineType = $engineType;
         $this->ouputFormat = $outputFormat ?: self::$defaultOutputFormat;
         if (is_resource($image)) {
@@ -103,9 +101,8 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
         return $this->_imagine;
     }
 
-    public function setDefaultMaxWidthHeight(
-            int $defaultMaxWidth, int $defaultMaxHeight
-    ): void {
+    public function setDefaultMaxWidthHeight(int $defaultMaxWidth, int $defaultMaxHeight): void
+    {
         $this->defaultMaxWidth = $defaultMaxWidth;
         $this->defaultMaxHeight = $defaultMaxHeight;
     }
@@ -144,10 +141,8 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
         return $this->_image;
     }
 
-    public function resize(
-            int $maxWidth = 0, int $maxHeight = 0,
-            string $resizeMode = self::RESIZE_FIT
-    ): self {
+    public function resize(int $maxWidth = 0, int $maxHeight = 0, string $resizeMode = self::RESIZE_FIT): self
+    {
         if (!$this->_image) {
             return $this;
         }
@@ -158,7 +153,7 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
         $ratio = $oriWidth / $oriHeight;
         $targetWidth = $maxWidth > 0 ? $maxWidth : $this->defaultMaxWidth;
         $targetHeight = $maxHeight > 0 ? $maxHeight :
-                ($maxWidth > 0 ? $maxWidth : $this->defaultMaxHeight);
+            ($maxWidth > 0 ? $maxWidth : $this->defaultMaxHeight);
         $targetRatio = $targetWidth / $targetHeight;
 
         switch ($resizeMode) {
@@ -171,13 +166,15 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
                 if ($targetRatio > $ratio) {
                     $newHeight = $oriWidth / $targetRatio;
                     $this->_image->crop(
-                            new Point(0, ($oriHeight - $newHeight) / 2),
-                            new Box($oriWidth, $newHeight));
-                } else if ($targetRatio < $ratio) {
+                        new Point(0, ($oriHeight - $newHeight) / 2),
+                        new Box($oriWidth, $newHeight)
+                    );
+                } elseif ($targetRatio < $ratio) {
                     $newWidth = $oriHeight * $targetRatio;
                     $this->_image->crop(
-                            new Point(($oriWidth - $newWidth) / 2, 0),
-                            new Box($newWidth, $oriHeight));
+                        new Point(($oriWidth - $newWidth) / 2, 0),
+                        new Box($newWidth, $oriHeight)
+                    );
                 }
                 $width = $targetWidth;
                 $height = $targetHeight;
@@ -199,6 +196,16 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
             $this->refreshProperties();
         }
         return $this;
+    }
+
+    public function getWidth(): int
+    {
+        return $this->_image ? $this->_image->getSize()->getWidth() : 0;
+    }
+
+    public function getHeight(): int
+    {
+        return $this->_image ? $this->_image->getSize()->getHeight() : 0;
     }
 
     public function __serialize(): array

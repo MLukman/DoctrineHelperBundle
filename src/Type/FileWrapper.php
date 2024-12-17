@@ -43,7 +43,7 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
 
     /**
      *
-     * @var Closure The callback that needs to be call to get content stream. 
+     * @var Closure The callback that needs to be call to get content stream.
      * Use this if the stream capturing can be postponed, e.g. fopen() on files
      */
     protected ?Closure $streamCallback = null;
@@ -54,9 +54,8 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
      */
     private ?string $downloadLink = null;
 
-    public function __construct(
-            ?string $name, int $size, ?string $mimetype, string $uuid = null
-    ) {
+    public function __construct(?string $name, int $size, ?string $mimetype, string $uuid = null)
+    {
         $this->name = $name;
         $this->size = $size;
         $this->mimetype = $mimetype;
@@ -65,9 +64,7 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
 
     public function __destruct()
     {
-        if ($this->stream) {
-            fclose($this->stream);
-        }
+        $this->closeStream();
     }
 
     public function getUuid(): ?string
@@ -85,6 +82,21 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
         return $this->size;
     }
 
+    public function getReadableSize(?string $unit = null): string
+    {
+        $size = $this->size;
+        if ((!$unit && $size >= 1 << 30) || $unit == "GB") {
+            return number_format($size / (1 << 30), 2) . " GB";
+        }
+        if ((!$unit && $size >= 1 << 20) || $unit == "MB") {
+            return number_format($size / (1 << 20), 2) . " MB";
+        }
+        if ((!$unit && $size >= 1 << 10) || $unit == "KB") {
+            return number_format($size / (1 << 10), 2) . " KB";
+        }
+        return number_format($size) . " bytes";
+    }
+
     public function getMimetype(): ?string
     {
         return $this->mimetype;
@@ -92,9 +104,10 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
 
     public function getStream()
     {
-        if (!$this->stream && $this->streamCallback) {
+        if ((!$this->stream || !is_resource($this->stream)) && $this->streamCallback) {
             $this->stream = call_user_func($this->streamCallback);
         }
+        rewind($this->stream);
         return $this->stream;
     }
 
@@ -131,18 +144,25 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
     public function getContent(): string|false
     {
         $stream = $this->getStream();
-        rewind($stream);
         return stream_get_contents($stream);
     }
 
     public function setContent(string $content): void
     {
-        if ($this->stream) {
-            fclose($this->stream);
-        }
+        $this->closeStream();
         $this->stream = fopen('php://temp', 'r+');
         fwrite($this->stream, $content);
         rewind($this->stream);
+    }
+
+    protected function closeStream(): void
+    {
+        if ($this->stream) {
+            if (is_resource($this->stream)) {
+                fclose($this->stream);
+            }
+            $this->stream = null;
+        }
     }
 
     public function getDownloadLink(): ?string
@@ -171,9 +191,8 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
         return $response;
     }
 
-    public static function fromUploadedFile(
-            UploadedFile $file, ?self $existing = null
-    ): ?static {
+    public static function fromUploadedFile(UploadedFile $file, ?self $existing = null): ?static
+    {
         if (!$file->isValid()) {
             return null;
         }
