@@ -1,6 +1,6 @@
 {
     "name": "mlukman/doctrine-helper-bundle",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "description": "A set of classes to simplify Symfony-Doctrine integration",
     "type": "symfony-bundle",
     "require": {

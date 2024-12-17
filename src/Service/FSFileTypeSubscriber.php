@@ -106,13 +106,14 @@ final class FSFileTypeSubscriber
             /* @var $property ReflectionProperty */
             foreach ($property->getAttributes(ORM\Column::class) as $column) {
                 /* @var $column ReflectionAttribute */
-                if (($column->getArguments()['type'] ?? null) == 'fsfile') {
-                    $directory = $this->dir . '/var/fsfiles/' . str_replace('\\', '/', get_class($entity)) . '/' . $property->getName() . '/';
-                    if (!is_dir($directory)) {
-                        mkdir($directory, 0777, true);
-                    }
-                    call_user_func($callback, $property->getName(), $property->getValue($entity), $directory);
+                if (($column->getArguments()['type'] ?? null) != 'fsfile') {
+                    continue;
                 }
+                $directory = $this->dir . '/var/fsfiles/' . str_replace('\\', '/', get_class($entity)) . '/' . $property->getName() . '/';
+                if (!is_dir($directory)) {
+                    mkdir($directory, 0777, true);
+                }
+                call_user_func($callback, $property->getName(), $property->getValue($entity), $directory);
             }
         }
     }
