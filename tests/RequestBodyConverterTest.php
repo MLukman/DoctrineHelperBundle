@@ -57,7 +57,7 @@ class RequestBodyConverterTest extends TestCaseBase
 
     public function testParse(): void
     {
-        $converted = $this->converter->getUtil()->parse($this->source, SampleRequestBody::class);
+        $converted = $this->converter->getUtil()->parseValues($this->source, SampleRequestBody::class);
         $this->doAssertion($this->source, $converted);
     }
 

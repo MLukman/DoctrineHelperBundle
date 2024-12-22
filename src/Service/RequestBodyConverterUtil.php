@@ -2,11 +2,13 @@
 
 namespace MLukman\DoctrineHelperBundle\Service;
 
+use Exception;
 use MLukman\DoctrineHelperBundle\Type\FromUploadedFileInterface;
 use ReflectionClass;
 use ReflectionNamedType;
 use ReflectionUnionType;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyInfo\Extractor\ConstructorExtractor;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
@@ -30,44 +32,104 @@ class RequestBodyConverterUtil
     protected $processings = [];
     protected $errors = [];
 
-    public function __construct(protected ?SerializerInterface $serializer)
+    public function __construct(protected ?SerializerInterface $serializer, private ObjectValidatorV2 $validator)
     {
         if (!$this->serializer) {
             $phpDocExtractor = new PhpDocExtractor();
             $typeExtractor = new PropertyInfoExtractor(
                 typeExtractors:
-                    [
-                        new ConstructorExtractor([$phpDocExtractor]),
-                        $phpDocExtractor,
-                        new ReflectionExtractor(),
-                    ]
+                [
+                    new ConstructorExtractor([$phpDocExtractor]),
+                    $phpDocExtractor,
+                    new ReflectionExtractor(),
+                ]
             );
             $this->serializer = new Serializer(
                 normalizers:
-                    [
-                        new ObjectNormalizer(propertyTypeExtractor: $typeExtractor),
-                        new DateTimeNormalizer(),
-                        new ArrayDenormalizer(),
-                    ],
+                [
+                    new ObjectNormalizer(propertyTypeExtractor: $typeExtractor),
+                    new DateTimeNormalizer(),
+                    new ArrayDenormalizer(),
+                ],
                 encoders: ['json' => new JsonEncoder()]
             );
         }
     }
 
-    public function parse(array $request, string $className): mixed
+    public function resolve(Request $request, string $type, string $name): mixed
+    {
+        $processingDetails = [];
+        if ($this->sanityCheck($request, $type, $name, $processingDetails)) {
+            $obj = $this->doResolve($request, $type, $name, $processingDetails);
+        }
+        $this->processings[] = ['class' => $type, 'name' => $name, 'details' => $processingDetails];
+        return $obj ?? null;
+    }
+
+    protected function sanityCheck(Request $request, string $type, string $name, array &$processings): bool
+    {
+        if (!in_array($request->getMethod(), ['POST', 'PUT'])) {
+            $processings[] = ['phase' => 'request_method_check', 'result' => 0, 'error' => 'Request method is not POST or PUT'];
+            return false;
+        }
+        $processings[] = ['phase' => 'request_method_check', 'result' => 1];
+        return true;
+    }
+
+    protected function doResolve(Request $request, string $type, string $name, array &$processings): mixed
+    {
+        try {
+            $body = ($request->headers->get('Content-type') == 'application/json' ? $request->getContent() : \json_encode($request->request->all()));
+            if (!($body_array = \json_decode($body, true))) {
+                $processings[] = ['phase' => 'read_request', 'result' => 0, 'error' => 'Unable to decode JSON body'];
+                return null;
+            }
+            $processings[] = ['phase' => 'read_request', 'result' => 1, 'details' => $body_array];
+
+            try {
+                $obj = $this->parseValues($body_array, $type);
+                $processings[] = ['phase' => 'parse_request', 'result' => 1, 'details' => $obj];
+            } catch (Exception $e) {
+                $processings[] = ['phase' => 'parse_request', 'result' => 0, 'error' => 'RequestBody object failed validations', 'details' => $e->getTrace()];
+                return null;
+            }
+
+            // Special handling for file uploads
+            $details = $this->handleFileUpload($request->files->all(), $obj);
+            $processings[] = ['phase' => 'handle_file_uploads', 'result' => 1, 'details' => $details];
+
+            // Validation
+            $this->validator->reset();
+            if (($errors = $this->validator->validate($obj))) {
+                // not valid
+                $this->addError($name, ['type' => 'validation_errors', 'validation_errors' => $errors]);
+                $processings[] = ['phase' => 'validate_request', 'result' => 0, 'error' => 'RequestBody object failed validations', 'details' => $errors];
+                return null;
+            }
+            $processings[] = ['phase' => 'validate_request', 'result' => 1];
+
+            // finally return the object
+            return $obj;
+        } catch (Exception $e) {
+            $this->addError($name, ['type' => 'exception', 'exception' => $e]);
+        }
+        return null;
+    }
+
+    public function parseValues(array $values, string $className): mixed
     {
         // Filter out empty strings & empty objects
-        $toDeserialize = static::array_filter_recursive($request, function ($val) {
+        $toDeserialize = static::array_filter_recursive($values, function ($val) {
             return !($val === "");
         });
         // Actual deserialization is handled by Symfony serializer
         return $this->serializer->deserialize(\json_encode($toDeserialize), $className, 'json', [
-                    ObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true,
-                    ObjectNormalizer::SKIP_NULL_VALUES => true,
+                ObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true,
+                ObjectNormalizer::SKIP_NULL_VALUES => true,
         ]);
     }
 
-    public function handleFileUpload(array $files, &$target): array
+    protected function handleFileUpload(array $files, &$target): array
     {
         $details = [];
 
@@ -106,16 +168,12 @@ class RequestBodyConverterUtil
 
             // collect the type(s) supported by the target property
             $ftype = $targetReflection->getProperty($fkey)->getType();
-            $types = ($ftype instanceof ReflectionNamedType ? [$ftype->getName()] : ($ftype instanceof ReflectionUnionType ? array_reduce(
-                $ftype->getTypes(),
-                function ($carry, ReflectionNamedType $type) {
-                    return $carry + [$type->getName()];
-                },
-                []
-            ) : []));
+            $ftypes = $ftype instanceof ReflectionUnionType ?
+                array_map(fn (ReflectionNamedType $ntype) => $ntype->getName(), $ftype->getTypes()) :
+                ($ftype instanceof ReflectionNamedType ? [$ftype->getName()] : []);
 
             // check & process whether any of the type(s) implements FromUploadedFileInterface
-            foreach ($types as $type) {
+            foreach ($ftypes as $type) {
                 $typeReflection = new ReflectionClass($type);
                 if ($typeReflection->implementsInterface(FromUploadedFileInterface::class)) {
                     $fromUploadedFile = call_user_func([$type, 'fromUploadedFile'], $fval);
@@ -130,14 +188,14 @@ class RequestBodyConverterUtil
             }
 
             // if UploadedFile is supported
-            if (in_array(UploadedFile::class, $types)) {
+            if (in_array(UploadedFile::class, $ftypes)) {
                 $propertyAccessor->setValue($target, $fkey, $fval);
-                $details[$fkey] = "File parsed as " . \get_class($fval);
+                $details[$fkey] = "File remains as " . UploadedFile::class;
                 continue;
             }
 
-            // last resort
-            if (empty($types) || in_array('string', $types)) {
+            // last resort, if string is accepted then parse as the file content
+            if (empty($ftypes) || in_array('string', $ftypes)) {
                 $propertyAccessor->setValue($target, $fkey, $fval->getContent());
                 $details[$fkey] = "File parsed as string";
             }
@@ -164,18 +222,6 @@ class RequestBodyConverterUtil
     public function getErrorsFor(string $parameterName): array
     {
         return $this->errors[$parameterName] ?? [];
-    }
-
-    public function addParameterProcessing(
-        string $class,
-        string $name,
-        array $details
-    ): void {
-        $this->processings[] = [
-            'class' => $class,
-            'name' => $name,
-            'details' => $details,
-        ];
     }
 
     public function getParameterProcessings(): array
