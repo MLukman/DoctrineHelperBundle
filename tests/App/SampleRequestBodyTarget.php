@@ -8,7 +8,7 @@ use MLukman\DoctrineHelperBundle\DTO\RequestBodyTargetInterface;
 
 class SampleRequestBodyTarget implements RequestBodyTargetInterface
 {
-    public ?string $name;
+    public ?string $name = 'default';
     public ?float $age;
     public ?string $comment;
     public ?SampleRequestBodyTarget $nested;

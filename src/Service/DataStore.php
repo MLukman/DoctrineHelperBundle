@@ -41,11 +41,11 @@ class DataStore
 
     /**
      *
-     * @param type $entity
-     * @param type $id_or_criteria
+     * @param string $entity
+     * @param mixed $id_or_criteria
      * @return mixed
      */
-    public function queryOne(string $entity, $id_or_criteria, array $orderBy = []): mixed
+    public function queryOne(string $entity, mixed $id_or_criteria, array $orderBy = []): mixed
     {
         if (empty($id_or_criteria)) {
             return null;

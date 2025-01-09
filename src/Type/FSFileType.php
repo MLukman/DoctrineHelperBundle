@@ -2,6 +2,7 @@
 
 namespace MLukman\DoctrineHelperBundle\Type;
 
+use DateTime;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\JsonType;
 use InvalidArgumentException;
@@ -34,6 +35,7 @@ class FSFileType extends JsonType
             'size' => $value->getSize(),
             'mimetype' => $value->getMimetype(),
             'uuid' => $value->getUuid(),
+            'datetime' => $value->getDatetime()->getTimestamp(),
         ];
 
         return \json_encode($metadata);
@@ -44,7 +46,13 @@ class FSFileType extends JsonType
         if ($value === null) {
             return null;
         }
-        extract(\json_decode($value, true));
-        return new FileWrapper($name, $size, $mimetype, $uuid);
+        $values = \json_decode($value, true);
+        return new FileWrapper(
+            $values['name'],
+            $values['size'],
+            $values['mimetype'],
+            $values['uuid'],
+            isset($values['datetime']) ? (new DateTime())->setTimestamp($values['datetime']) : null
+        );
     }
 }

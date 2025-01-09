@@ -5,12 +5,11 @@ namespace MLukman\DoctrineHelperBundle\DTO;
 use ArrayAccess;
 use DateTime;
 use DateTimeInterface;
+use Doctrine\ORM\Mapping\Entity;
 use LogicException;
 use MLukman\DoctrineHelperBundle\Service\DataStore;
 use ReflectionClass;
-use ReflectionProperty;
-use ReflectionUnionType;
-use Symfony\Component\PropertyAccess\PropertyAccess;
+use ReflectionType;
 
 /**
  * This class is the base class for objects that hold the bodies of incoming requests.
@@ -32,49 +31,28 @@ abstract class RequestBody
         mixed $context = null,
         ?DataStore $datastore = null
     ): RequestBodyTargetInterface {
-        // Prepare helpers
-        $request_reflection = new ReflectionClass($this);
-        $target_reflection = new ReflectionClass($target);
-        $propertyAccessor = PropertyAccess::createPropertyAccessor();
-
-        foreach ($request_reflection->getProperties() as $request_property) {
-            /** @var ReflectionProperty $request_property */
+        $thisReflection = new ReflectionClass($this);
+        if ($thisReflection->hasMethod('prepareTargetPropertyValue')) {
+            throw new LogicException(\sprintf("Class %s has outdated customization. It needs to override 'convertProperty' method instead of the deprecated 'prepareTargetPropertyValue'.", \get_class($this)));
+        }
+        foreach ($thisReflection->getProperties() as $request_property) {
             $property_name = $request_property->getName();
-
-            // Ensure basic requirements to process property is fulfilled
-            if (!$request_property->isInitialized($this) ||
-                    !$propertyAccessor->isReadable($this, $property_name) ||
-                    !$target_reflection->hasProperty($property_name) ||
-                    !$propertyAccessor->isWritable($target, $property_name)) {
+            $requestProperty = new PropertyInfo($this, $property_name);
+            if (!$requestProperty->isInitialized() || !$requestProperty->isReadable() ||
+                !(new ReflectionClass($target))->hasProperty($property_name) ||
+                (($targetProperty = new PropertyInfo($target, $property_name)) && !$targetProperty->isWritable())) {
                 continue;
             }
-
-            // Get both request & target properties' original values
-            $request_property_value = $request_property->getValue($this);
-            $target_property_value_orig = $target_reflection->getProperty($property_name)->isInitialized($target) ? $propertyAccessor->getValue($target, $property_name) : null;
-
-            // Find out the type(s) of the target property
-            $target_property_type = $target_reflection->getProperty($property_name)->getType();
-            $target_property_types = (
-                !$target_property_type ? [] : (
-                    $target_property_type instanceof ReflectionUnionType ?
-                    $target_property_type->getTypes() : [$target_property_type]
-                )
-            );
-
-            $target_property_value = $this->prepareTargetPropertyValue(
-                $target,
-                $property_name,
-                $request_property_value,
-                $target_property_value_orig,
-                array_combine(array_map(fn ($t) => $t->getName(), $target_property_types), $target_property_types),
-                $context,
-                $datastore
-            );
-
-            // Finally, set target property
-            if (!\is_null($target_property_value) || $target_property_type->allowsNull()) {
-                $propertyAccessor->setValue($target, $property_name, $target_property_value);
+            $converted = false;
+            foreach ($targetProperty->getTypes() as $type_name => $target_property_type) {
+                $target_property_value = $targetProperty->getValue();
+                $converted = $converted || $this->convertProperty($target, $property_name, $requestProperty->getValue(), $type_name, $target_property_type, $target_property_value, $context, $datastore);
+            }
+            if (!$converted) {
+                $target_property_value = $requestProperty->getValue();
+            }
+            if (!\is_null($target_property_value) || $targetProperty->allowsNull()) {
+                $targetProperty->setValue($target_property_value);
                 $this->postSetPropertyValue($target, $property_name, $target_property_value, $context);
             }
         }
@@ -82,85 +60,60 @@ abstract class RequestBody
         return $target;
     }
 
-    protected function prepareTargetPropertyValue(
+    protected function convertProperty(
         RequestBodyTargetInterface $target,
         string $property_name,
-        mixed $request_property_value,
-        mixed $target_property_value,
-        array $target_property_types,
+        mixed $requestPropertyValue,
+        string $targetPropertyType,
+        ReflectionType $targetPropertyReflectionType,
+        mixed &$targetPropertyValue,
         mixed $context = null,
         ?DataStore $datastore = null
-    ): mixed {
-        foreach ($target_property_types as $type_name => $target_property_type) {
-            // target expects array but source is string
-            if ($type_name == 'array' && \is_string($request_property_value)) {
-                return \array_map(fn ($v) => trim($v), \explode("\n", $request_property_value));
-            }
-
-            /* @var $target_property_type_refl ReflectionClass */
-            $target_property_type_refl = \class_exists($type_name) ? new ReflectionClass($type_name) : null;
-
-            // target expects object that implements RequestBodyTargetInterface
-            if ($target_property_type_refl && $target_property_type_refl->implementsInterface(RequestBodyTargetInterface::class)) {
-                if (\is_scalar($request_property_value)) { // if request property is scalar
-                    $existing = null;
-                    if ($datastore && !empty($target_property_type_refl->getAttributes(\Doctrine\ORM\Mapping\Entity::class))) {
-                        $existing = $datastore->queryOne($type_name, $request_property_value);
-                    }
-                    return $existing ?:
-                            $this->createRequestBodyTargetInterfaceFromScalarProperty($target, $property_name, $request_property_value, $type_name, $context, $datastore) ?:
-                            $target_property_value;
-                } elseif (
-                    $request_property_value instanceof RequestBody &&
-                    ($target_property_value instanceof RequestBodyTargetInterface || \is_null($target_property_value))
-                ) { // if request property is RequestBody
-                    return $this->populateChild($target, $property_name, $request_property_value, $target_property_value, null, $context, $datastore);
-                }
-            }
-
-            // target expects array or is instance of ArrayAccess (e.g. Doctrine Collection)
-            if (
-                \is_iterable($request_property_value) &&
-                ($type_name == 'array' || $target_property_value instanceof ArrayAccess || $target_property_type_refl->implementsInterface(ArrayAccess::class))
-            ) {
-                if (\is_null($target_property_value) && $target_property_type_refl->implementsInterface(ArrayAccess::class) && $target_property_type_refl->isInstantiable()) {
-                    $target_property_value = $target_property_type_refl->newInstance();
-                }
-                foreach ($request_property_value as $request_propitem_key => $request_propitem_value) {
-                    if ($request_propitem_value instanceof RequestBody) {
-                        $target_key_value = $target_property_value[$request_propitem_key] ?? null;
-                        $request_propitem_value = $this->populateChild(
-                            $target,
-                            $property_name,
-                            $request_propitem_value,
-                            $target_key_value instanceof RequestBodyTargetInterface ? $target_key_value : null,
-                            $request_propitem_key,
-                            $context,
-                            $datastore
-                        );
-                    }
-                    if (!\is_null($request_propitem_value)) {
-                        $target_property_value[$request_propitem_key] = $request_propitem_value;
-                    } elseif (isset($target_property_value[$request_propitem_key])) {
-                        unset($target_property_value[$request_propitem_key]);
-                    }
-                }
-                return $target_property_value ?? null;
-            }
-
-            // target expects DateTim
-            if (\is_bool($request_property_value) && in_array($type_name, [DateTimeInterface::class, DateTime::class])) { // source is boolean but target expects datetime then true = current datetime, false = null
-                if ($request_property_value && !$target_property_value) {
-                    return new DateTime();
-                }
-                if (!$request_property_value && $target_property_value && $target_property_type->allowsNull()) {
-                    return null;
-                }
+    ): bool {
+        if ($targetPropertyType == 'array' && \is_string($requestPropertyValue)) { // target expects array but source is string
+            return !empty($targetPropertyValue = \array_map(fn($v) => trim($v), \explode("\n", $requestPropertyValue)));
+        }
+        $targetPropertyReflectionClass = \class_exists($targetPropertyType) ? new ReflectionClass($targetPropertyType) : null;
+        if ($datastore && !empty($targetPropertyReflectionClass?->getAttributes(Entity::class)) && ($existing = $datastore->queryOne($targetPropertyType, $requestPropertyValue))) { // query entity if existing
+            return !empty($targetPropertyValue = $existing);
+        }
+        if ($targetPropertyReflectionClass?->implementsInterface(RequestBodyTargetInterface::class)) { // target expects object that implements RequestBodyTargetInterface
+            if (\is_scalar($requestPropertyValue)) { // if request property is scalar
+                return !empty($targetPropertyValue = $this->createRequestBodyTargetInterfaceFromScalarProperty($target, $property_name, $requestPropertyValue, $targetPropertyType, $context, $datastore) ?: $targetPropertyValue);
+            } elseif ($requestPropertyValue instanceof RequestBody && ($targetPropertyValue instanceof RequestBodyTargetInterface || \is_null($targetPropertyValue))) { // if request property is RequestBody
+                return !empty($targetPropertyValue = $this->populateChild($target, $property_name, $requestPropertyValue, $targetPropertyValue, null, $context, $datastore));
             }
         }
-
-        // if nothing matches, just return the request property value
-        return $request_property_value;
+        if (\is_iterable($requestPropertyValue) && ($targetPropertyType == 'array' || $targetPropertyValue instanceof ArrayAccess || $targetPropertyReflectionClass?->implementsInterface(ArrayAccess::class))) { // target expects array or is instance of ArrayAccess (e.g. Doctrine Collection)
+            if (\is_null($targetPropertyValue)) {
+                if ($targetPropertyReflectionClass?->implementsInterface(ArrayAccess::class) && $targetPropertyReflectionClass?->isInstantiable()) {
+                    $targetPropertyValue = $targetPropertyReflectionClass?->newInstance();
+                } else {
+                    $targetPropertyValue = [];
+                }
+            }
+            foreach ($requestPropertyValue as $request_propitem_key => $request_propitem_value) {
+                if ($request_propitem_value instanceof RequestBody) {
+                    $request_propitem_value = $this->populateChild($target, $property_name, $request_propitem_value, ($target_key_value = $targetPropertyValue[$request_propitem_key] ?? null) instanceof RequestBodyTargetInterface ? $target_key_value : null, $request_propitem_key, $context, $datastore);
+                }
+                if (!\is_null($request_propitem_value)) {
+                    $targetPropertyValue[$request_propitem_key] = $request_propitem_value;
+                } elseif (isset($targetPropertyValue[$request_propitem_key])) {
+                    unset($targetPropertyValue[$request_propitem_key]);
+                }
+            }
+            return true;
+        }
+        if (\is_bool($requestPropertyValue) && in_array($targetPropertyType, [DateTimeInterface::class, DateTime::class])) { // source is boolean but target expects datetime then true = current datetime, false = null
+            if ($requestPropertyValue && !$targetPropertyValue) {
+                return !empty($targetPropertyValue = new DateTime());
+            }
+            if (!$requestPropertyValue && $targetPropertyValue && $targetPropertyReflectionType->allowsNull()) {
+                $targetPropertyValue = null;
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -185,7 +138,7 @@ abstract class RequestBody
         ?DataStore $datastore = null
     ): ?RequestBodyTargetInterface {
         if ($targetChild) {
-            return $requestBodyChild->populate($targetChild, $context);
+            return $requestBodyChild->populate($targetChild, $context, $datastore);
         }
         throw new LogicException(\sprintf("Class %s cannot handle conversion of the property '%s' of class %s", \get_class($this), $targetChildName, \get_class($requestBodyChild)));
     }
@@ -226,7 +179,7 @@ abstract class RequestBody
         mixed $target_property_value,
         mixed $context = null
     ) {
-
+        
     }
 
     /**

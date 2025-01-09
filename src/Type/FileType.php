@@ -36,10 +36,11 @@ class FileType extends BlobType
                 break;
         }
         return \pack(
-            'a255Qa250a5H*',
+            'a255Qa242Qa5H*',
             $value->getName(),
             $value->getSize(),
             $value->getMimetype(),
+            $value->getDatetime(),
             $compression,
             bin2hex($data)
         );
@@ -50,8 +51,8 @@ class FileType extends BlobType
         if ($value === null) {
             return null;
         }
-        $unpacked = \unpack('a255name/Qsize/a250mimetype/a5compression/H*content', $value);
-        $filestore = new FileWrapper(trim($unpacked['name']), $unpacked['size'], trim($unpacked['mimetype']));
+        $unpacked = \unpack('a255name/Qsize/a242mimetype/Qdatetime/a5compression/H*content', $value);
+        $filestore = new FileWrapper(trim($unpacked['name']), $unpacked['size'], trim($unpacked['mimetype']), datetime: $unpacked['datetime'] > 0 ? (new \DateTime())->setTimestamp($unpacked['datetime']) : null);
         $data = hex2bin($unpacked['content']);
         if (trim($unpacked['compression']) == 'gzip') {
             $data = gzdecode($data);

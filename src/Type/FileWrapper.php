@@ -3,6 +3,7 @@
 namespace MLukman\DoctrineHelperBundle\Type;
 
 use Closure;
+use DateTime;
 use Ramsey\Uuid\Uuid;
 use Stringable;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -36,6 +37,12 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
     protected ?string $mimetype = null;
 
     /**
+     * 
+     * @var DateTime The datetime the file is uploaded/stored
+     */
+    protected ?DateTime $datetime = null;
+
+    /**
      *
      * @var string The stream that contains the content of the file
      */
@@ -54,12 +61,13 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
      */
     private ?string $downloadLink = null;
 
-    public function __construct(?string $name, int $size, ?string $mimetype, string $uuid = null)
+    public function __construct(?string $name, int $size, ?string $mimetype, string $uuid = null, ?DateTime $datetime = null)
     {
         $this->name = $name;
         $this->size = $size;
         $this->mimetype = $mimetype;
         $this->uuid = $uuid ?: Uuid::uuid7();
+        $this->datetime = $datetime;
     }
 
     public function __destruct()
@@ -100,6 +108,11 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
     public function getMimetype(): ?string
     {
         return $this->mimetype;
+    }
+
+    public function getDatetime(): ?DateTime
+    {
+        return $this->datetime;
     }
 
     public function getStream()
@@ -196,7 +209,7 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
         if (!$file->isValid()) {
             return null;
         }
-        $filestore = new self($file->getClientOriginalName(), $file->getSize(), $file->getMimeType(), $existing ? $existing->uuid : null);
+        $filestore = new self($file->getClientOriginalName(), $file->getSize(), $file->getMimeType(), $existing ? $existing->uuid : null, new DateTime());
         $filestore->setStream(fopen($file->getRealPath(), 'r'));
         return $filestore;
     }

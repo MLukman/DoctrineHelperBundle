@@ -19,7 +19,8 @@ class RequestBodyTest extends TestCaseBase
         $child = new SampleRequestBody();
         $child->name = 'Child';
         $child->fromScalar = 'Scalar';
-        $requestBody->nested->children['child'] = $child;
+        $requestBody->nested->children['one'] = $child;
+        $requestBody->nested->children['two'] = new SampleRequestBody();
         $requestBody->stringToArray = "Zero\nOne\nTwo\nThree";
         $requestBody->date = true;
 
@@ -33,9 +34,10 @@ class RequestBodyTest extends TestCaseBase
         // assert RequestBody::populateChild() working
         $this->assertEquals($requestBody->nested->name, $requestBodyTarget->nested->name ?? null);
         // assert RequestBody::populateChild() working for iterable property
-        $this->assertEquals($requestBody->nested->children['child']->name, $requestBodyTarget->nested->children['child']->name ?? null);
+        $this->assertEquals($requestBody->nested->children['one']->name, $requestBodyTarget->nested->children['one']->name ?? null);
+        $this->assertEquals('default', $requestBodyTarget->nested->children['two']->name ?? null);
         // assert RequestBody::createRequestBodyTargetInterfaceFromScalarProperty() working
-        $this->assertEquals($requestBody->nested->children['child']->fromScalar, $requestBodyTarget->nested->children['child']->fromScalar->name ?? null);
+        $this->assertEquals($requestBody->nested->children['one']->fromScalar, $requestBodyTarget->nested->children['one']->fromScalar->name ?? null);
         // assert multiline string -> array works
         $this->assertEquals("Three", $requestBodyTarget->stringToArray[3] ?? null);
         // assert bool -> DateTime works

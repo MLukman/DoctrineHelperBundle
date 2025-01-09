@@ -16,6 +16,7 @@ class SampleRequestBody extends RequestBody
     public ?array $attributes;
     public ?string $stringToArray;
     public ?bool $date;
+    public string $extra = "this should be ignored";
 
     /**
      * @var SampleRequestBody[] $children
@@ -32,9 +33,9 @@ class SampleRequestBody extends RequestBody
         ?DataStore $datastore = null
     ): ?RequestBodyTargetInterface {
         if (in_array($targetChildName, ['nested', 'children']) && !$targetChild) {
-            return $requestBodyChild->populate(new SampleRequestBodyTarget(), $context);
+            return $requestBodyChild->populate(new SampleRequestBodyTarget(), $context, $datastore);
         }
-        return parent::populateChild($target, $targetChildName, $requestBodyChild, $targetChild, $key, $context);
+        return parent::populateChild($target, $targetChildName, $requestBodyChild, $targetChild, $key, $context, $datastore);
     }
 
     protected function createRequestBodyTargetInterfaceFromScalarProperty(
