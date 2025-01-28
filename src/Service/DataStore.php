@@ -101,6 +101,36 @@ class DataStore
         return $qb->getQuery()->getSingleScalarResult();
     }
 
+    public function countBy(string $entity, string|array $groupByField, array $criteria = []): array
+    {
+        if (!is_array($groupByField)) {
+            $groupByField = [$groupByField];
+        }
+        $groupByField = array_filter($groupByField);
+        if (empty($groupByField)) {
+            return 0;
+        }
+        $qb = $this->queryBuilder($entity, 'a');
+        $this->applyCriteriaToQueryBuilder($criteria, $qb);
+        $select = "count(a) as num";
+        foreach ($groupByField as $f) {
+            $qb->addGroupBy("a.$f");
+            $select = "a.$f, $select";
+        }
+        $qb->select($select);
+        $counts = [];
+        $recurse = function (array $result, array &$fields) use (&$recurse) {
+            return ($f = array_shift($fields)) ?
+            [($result[$f]) => $recurse($result, $fields)] :
+            $result['num'];
+        };
+        foreach ($qb->getQuery()->getArrayResult() as $result) {
+            $fields = $groupByField;
+            $counts = array_merge_recursive($counts, $recurse($result, $fields));
+        }
+        return $counts;
+    }
+
     protected function applyCriteriaToQueryBuilder(array $criteria, QueryBuilder $qb, bool $or = false): void
     {
         $alias = $qb->getRootAliases()[0];

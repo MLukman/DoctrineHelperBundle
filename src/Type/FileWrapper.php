@@ -188,13 +188,13 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
         $this->downloadLink = $downloadLink;
     }
 
-    public function getDownloadResponse(?Request $request = null): Response
+    public function getDownloadResponse(?Request $request = null, ?string $filenameOverride = null): Response
     {
         $binary = $this->getContent();
         $response = new Response($binary, 200, [
             'Content-Type' => $this->getMimetype(),
             'Content-Length' => strlen($binary),
-            'Content-Disposition' => "inline; filename=\"{$this->getName()}\"",
+            'Content-Disposition' => sprintf('inline; filename="%s"', $filenameOverride ?: $this->getName()),
         ]);
         $response->setEtag(md5($binary));
         $response->setPublic();
