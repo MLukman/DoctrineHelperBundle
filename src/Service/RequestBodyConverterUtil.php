@@ -119,7 +119,7 @@ class RequestBodyConverterUtil
     public function parseValues(array $values, string $className): mixed
     {
         // Filter out empty strings & empty objects
-        $toDeserialize = static::array_filter_recursive($values, fn($val) => $val !== "");
+        $toDeserialize = static::array_filter_recursive($values, fn ($val) => $val !== "");
         // Actual deserialization is handled by Symfony serializer
         return $this->serializer->deserialize(\json_encode($toDeserialize), $className, 'json', [
                 ObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true,
@@ -162,7 +162,7 @@ class RequestBodyConverterUtil
             // collect the type(s) supported by the target property
             $ftype = $targetReflection->getProperty($fkey)->getType();
             $ftypes = $ftype instanceof ReflectionUnionType ?
-                array_map(fn(ReflectionNamedType $ntype) => $ntype->getName(), $ftype->getTypes()) :
+                array_map(fn (ReflectionNamedType $ntype) => $ntype->getName(), $ftype->getTypes()) :
                 ($ftype instanceof ReflectionNamedType ? [$ftype->getName()] : []);
 
             // check & process whether any of the type(s) implements FromUploadedFileInterface

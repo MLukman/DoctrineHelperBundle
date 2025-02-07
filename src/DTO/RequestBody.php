@@ -85,12 +85,10 @@ abstract class RequestBody
             }
         }
         if (\is_iterable($requestPropertyValue) && ($targetPropertyType == 'array' || $targetPropertyValue instanceof ArrayAccess || $targetPropertyReflectionClass?->implementsInterface(ArrayAccess::class))) { // target expects array or is instance of ArrayAccess (e.g. Doctrine Collection)
-            if (\is_null($targetPropertyValue)) {
-                if ($targetPropertyReflectionClass?->implementsInterface(ArrayAccess::class) && $targetPropertyReflectionClass?->isInstantiable()) {
-                    $targetPropertyValue = $targetPropertyReflectionClass?->newInstance();
-                } else {
-                    $targetPropertyValue = [];
-                }
+            if (\is_null($targetPropertyValue) && $targetPropertyReflectionClass?->implementsInterface(ArrayAccess::class) && $targetPropertyReflectionClass?->isInstantiable()) {
+                $targetPropertyValue = $targetPropertyReflectionClass?->newInstance();
+            } else {
+                $targetPropertyValue = [];
             }
             foreach ($requestPropertyValue as $request_propitem_key => $request_propitem_value) {
                 if ($request_propitem_value instanceof RequestBody) {
