@@ -40,7 +40,7 @@ class FileType extends BlobType
             $value->getName(),
             $value->getSize(),
             $value->getMimetype(),
-            $value->getDatetime(),
+            ($dt = $value->getDatetime()) ? $dt->getTimestamp() : null,
             $compression,
             bin2hex($data)
         );
