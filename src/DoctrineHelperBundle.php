@@ -15,16 +15,13 @@ use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
 
 class DoctrineHelperBundle extends AbstractBundle
 {
-    public function loadExtension(
-            array $config, ContainerConfigurator $containerConfigurator,
-            ContainerBuilder $containerBuilder
-    ): void {
+    public function loadExtension(array $config, ContainerConfigurator $containerConfigurator, ContainerBuilder $containerBuilder): void
+    {
         $containerConfigurator->import('../config/services.yaml');
     }
 
-    public function prependExtension(
-            ContainerConfigurator $container, ContainerBuilder $builder
-    ): void {
+    public function prependExtension(ContainerConfigurator $container, ContainerBuilder $builder): void
+    {
         $builder->prependExtensionConfig('doctrine', [
             'dbal' => [
                 'types' => [

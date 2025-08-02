@@ -90,7 +90,12 @@ final class FSFileTypeSubscriber
             $args->getObject(),
             function (string $name, ?FileWrapper $file, string $directory) {
                 if ($file && file_exists($filepath = $directory . $file->getUuid())) {
-                    $file->setStreamCallback(fn() => fopen($filepath, "rb"));
+                    $file->setStreamCallback(function () use ($filepath) {
+                        $stream = fopen('php://temp', "w+b");
+                        fwrite($stream, file_get_contents($filepath));
+                        rewind($stream);
+                        return $stream;
+                    });
                 }
             }
         );
@@ -113,7 +118,7 @@ final class FSFileTypeSubscriber
         $this->iterateFSFileProperties(
             $entity,
             function (string $name, ?FileWrapper $file, string $directory) {
-                if ($file) {
+                if ($file && $file->mightBeModified()) {
                     $this->filesToStore[$directory . $file->getUuid()] = $file->getStream();
                 }
             }

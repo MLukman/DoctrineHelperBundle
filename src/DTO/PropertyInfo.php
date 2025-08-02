@@ -3,6 +3,7 @@
 namespace MLukman\DoctrineHelperBundle\DTO;
 
 use ReflectionProperty;
+use ReflectionType;
 use ReflectionUnionType;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
@@ -15,8 +16,11 @@ class PropertyInfo
     protected array $types;
     protected static PropertyAccessor $accessor;
 
-    public function __construct(protected object $object, protected string $name, ?ReflectionProperty $reflection = null)
-    {
+    public function __construct(
+        protected object $object,
+        protected string $name,
+        ?ReflectionProperty $reflection = null
+    ) {
         if (!isset(static::$accessor)) {
             static::$accessor = PropertyAccess::createPropertyAccessor();
         }
@@ -44,6 +48,11 @@ class PropertyInfo
     public function getTypes(): array
     {
         return $this->types;
+    }
+
+    public function hasType(string $name): ?ReflectionType
+    {
+        return $this->types[$name] ?? null;
     }
 
     public function isInitialized(): bool

@@ -108,16 +108,17 @@ final class Timezonify
         }
     }
 
-    protected function updateObjectDateTimeProperty(
-            mixed $object, ReflectionProperty $property, callable $updateFn
-    ) {
+    protected function updateObjectDateTimeProperty(mixed $object, ReflectionProperty $property, callable $updateFn)
+    {
         try {
             $property_name = $property->getName();
 
-            if (!empty($property->getAttributes(TimezonifyAttribute::class)) &&
-                    $property->isInitialized($object) &&
-                    $this->propertyAccessor->isReadable($object, $property_name) &&
-                    ($value = $this->propertyAccessor->getValue($object, $property_name)) instanceof DateTime && $this->propertyAccessor->isWritable($object, $property_name)) {
+            if (
+                !empty($property->getAttributes(TimezonifyAttribute::class)) &&
+                $property->isInitialized($object) &&
+                $this->propertyAccessor->isReadable($object, $property_name) &&
+                ($value = $this->propertyAccessor->getValue($object, $property_name)) instanceof DateTime && $this->propertyAccessor->isWritable($object, $property_name)
+            ) {
                 $this->propertyAccessor->setValue($object, $property_name, $updateFn($value));
             }
         } catch (Exception $ex) {

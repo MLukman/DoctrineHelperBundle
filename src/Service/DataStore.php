@@ -134,7 +134,7 @@ class DataStore
     protected function applyCriteriaToQueryBuilder(array $criteria, QueryBuilder $qb, bool $or = false): void
     {
         $alias = $qb->getRootAliases()[0];
-        $applyer = $or ? fn ($qb, $where) => $qb->orWhere($where) : fn ($qb, $where) => $qb->andWhere($where);
+        $applyer = $or ? fn($qb, $where) => $qb->orWhere($where) : fn($qb, $where) => $qb->andWhere($where);
         foreach ($criteria as $col => $val) {
             $opmatch = [];
             if (preg_match('/^(>=|<=|>|<|!)(.*)$/', $col, $opmatch)) {
@@ -197,8 +197,8 @@ class DataStore
     public function fulltextSearch($entity, array $fulltextColumns, string $searchterm, array $filters = []): QueryBuilder
     {
         $commaDelimitedColumns = join(", ", array_map(function ($item) {
-            return "e.$item";
-        }, $fulltextColumns));
+                return "e.$item";
+            }, $fulltextColumns));
         /** @var QueryBuilder $qb */
         $qb = $this->queryBuilder($entity, 'e')
             ->addSelect("MATCH_AGAINST ({$commaDelimitedColumns}, :searchterm 'IN BOOLEAN MODE') as HIDDEN score")

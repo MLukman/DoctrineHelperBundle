@@ -14,8 +14,10 @@ final class PaginatorConverter implements ValueResolverInterface
 
     public function resolve(Request $request, ArgumentMetadata $argument): iterable
     {
-        if (!($argumentType = $argument->getType()) ||
-                !is_a($argumentType, Paginator::class, true)) {
+        if (
+            !($argumentType = $argument->getType()) ||
+            !is_a($argumentType, Paginator::class, true)
+        ) {
             return [];
         }
 
@@ -28,7 +30,7 @@ final class PaginatorConverter implements ValueResolverInterface
     {
         if (!isset($this->paginator[$class])) {
             $this->paginators[$class] = (new ReflectionClass($class))
-                    ->newInstance(max(1, $queries['page'] ?? 1), $queries['limit'] ?? 0);
+                ->newInstance(max(1, $queries['page'] ?? 1), $queries['limit'] ?? 0);
         }
         return $this->paginators[$class];
     }

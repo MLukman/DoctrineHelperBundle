@@ -13,7 +13,7 @@ final class ObjectValidatorV2
 
     public function __construct(private ValidatorInterface $validator)
     {
-
+        
     }
 
     public function validate(mixed $entity, string|GroupSequence|array|null $groups = null): array

@@ -5,16 +5,20 @@ namespace MLukman\DoctrineHelperBundle\Trait;
 use DateTimeInterface;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use MLukman\DoctrineHelperBundle\Service\Timezonify;
 
 #[ORM\MappedSuperclass]
 trait AuditedEntityDatesTrait
 {
+    #[Timezonify]
     #[ORM\Column(type: Types::DATETIME_MUTABLE, options: ["default" => "CURRENT_TIMESTAMP"])]
     protected ?DateTimeInterface $created = null;
 
+    #[Timezonify]
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     protected ?DateTimeInterface $updated = null;
 
+    #[Timezonify]
     #[ORM\Column(type: Types::DATETIME_MUTABLE, options: ["default" => "CURRENT_TIMESTAMP"])]
     protected ?DateTimeInterface $saved = null;
 

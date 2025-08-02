@@ -61,8 +61,19 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
      */
     private ?string $downloadLink = null;
 
-    public function __construct(?string $name, int $size, ?string $mimetype, string $uuid = null, ?DateTime $datetime = null)
-    {
+    /**
+     * 
+     * @var bool True if the content of the file might be modified
+     */
+    private bool $mightBeModified = false;
+
+    public function __construct(
+        ?string $name,
+        int $size,
+        ?string $mimetype,
+        string $uuid = null,
+        ?DateTime $datetime = null
+    ) {
         $this->name = $name;
         $this->size = $size;
         $this->mimetype = $mimetype;
@@ -121,6 +132,7 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
             $this->stream = call_user_func($this->streamCallback);
         }
         rewind($this->stream);
+        $this->mightBeModified = true;
         return $this->stream;
     }
 
@@ -142,10 +154,12 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
     public function setStream($stream): void
     {
         $this->stream = $stream;
+        $this->mightBeModified = true;
     }
 
     public function getStreamCallback(): ?Closure
     {
+        $this->mightBeModified = true;
         return $this->streamCallback;
     }
 
@@ -157,15 +171,16 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
     public function getContent(): string|false
     {
         $stream = $this->getStream();
-        return stream_get_contents($stream);
+        return stream_get_contents($stream, offset: 0);
     }
 
     public function setContent(string $content): void
     {
         $this->closeStream();
-        $this->stream = fopen('php://temp', 'r+');
+        $this->stream = fopen('php://temp', 'w+');
         fwrite($this->stream, $content);
         rewind($this->stream);
+        $this->mightBeModified = true;
     }
 
     protected function closeStream(): void
@@ -217,5 +232,10 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
     public function __toString(): string
     {
         return $this->downloadLink ?: $this->name ?: "Unknown";
+    }
+
+    public function mightBeModified(): bool
+    {
+        return $this->mightBeModified;
     }
 }

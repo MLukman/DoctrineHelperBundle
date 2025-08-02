@@ -42,9 +42,9 @@ final class ResponseFiltersConverter implements ValueResolverInterface
         if (!empty($filters) && !is_array($filters)) {
             $filters = \json_decode($filters, true);
         }
-        return [new ResponseFilters(
-                    self::makeCriteriaFromArray(is_array($filters) ? $filters : [])
-        )];
+        return [
+            new ResponseFilters(self::makeCriteriaFromArray(is_array($filters) ? $filters : []))
+        ];
     }
 
     public static function makeCriteriaFromArray(array $criterias): ?Criteria

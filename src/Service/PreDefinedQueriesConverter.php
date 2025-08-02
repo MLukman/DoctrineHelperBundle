@@ -13,8 +13,10 @@ final class PreDefinedQueriesConverter implements ValueResolverInterface
 
     public function resolve(Request $request, ArgumentMetadata $argument): iterable
     {
-        if (!($argumentType = $argument->getType()) ||
-                !is_a($argumentType, PreDefinedQueries::class, true)) {
+        if (
+            !($argumentType = $argument->getType()) ||
+            !is_a($argumentType, PreDefinedQueries::class, true)
+        ) {
             return [];
         }
 

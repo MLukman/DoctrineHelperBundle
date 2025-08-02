@@ -65,7 +65,7 @@ class EncryptedType extends TextType
                 return openssl_decrypt($ciphertext_raw, $cipher, $key, OPENSSL_RAW_DATA, $iv);
             }
         } catch (\Exception $ex) {
-
+            
         }
         return null;
     }

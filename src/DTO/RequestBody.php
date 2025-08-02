@@ -26,11 +26,8 @@ abstract class RequestBody
      * @param mixed $context
      * @return RequestBodyTargetInterface
      */
-    public function populate(
-        RequestBodyTargetInterface $target,
-        mixed $context = null,
-        ?DataStore $datastore = null
-    ): RequestBodyTargetInterface {
+    public function populate(RequestBodyTargetInterface $target, mixed $context = null, ?DataStore $datastore = null): RequestBodyTargetInterface
+    {
         $thisReflection = new ReflectionClass($this);
         if ($thisReflection->hasMethod('prepareTargetPropertyValue')) {
             throw new LogicException(\sprintf("Class %s has outdated customization. It needs to override 'convertProperty' method instead of the deprecated 'prepareTargetPropertyValue'.", \get_class($this)));
@@ -45,8 +42,10 @@ abstract class RequestBody
             }
             $converted = false;
             foreach ($targetProperty->getTypes() as $type_name => $target_property_type) {
-                $target_property_value = $targetProperty->getValue();
-                $converted = $converted || $this->convertProperty($target, $property_name, $requestProperty->getValue(), $type_name, $target_property_type, $target_property_value, $context, $datastore);
+                if (!$converted) {
+                    $target_property_value = $targetProperty->getValue();
+                    $converted = $this->convertProperty($target, $property_name, $requestProperty->getValue(), $type_name, $target_property_type, $target_property_value, $context, $datastore);
+                }
             }
             if (!$converted) {
                 $target_property_value = $requestProperty->getValue();

@@ -14,8 +14,10 @@ final class ObjectValidator
     }
 
     public function validate(
-            mixed $entity, bool $asArray = true, array &$errors = [],
-            array $groups = []
+        mixed $entity,
+        bool $asArray = true,
+        array &$errors = [],
+        array $groups = []
     ): array {
         $validationResults = $this->validator->validate($entity, null, $groups);
         foreach ($validationResults as $violation) {
@@ -24,23 +26,21 @@ final class ObjectValidator
         }
         if ($asArray) {
             return array_map(
-                    function (array $e) {
-                        return array_map(
+                function (array $e) {
+                    return array_map(
                         function (ConstraintViolation|string $f) {
                             return ($f instanceof ConstraintViolation) ?
-                            $f->getMessage() : $f;
+                                $f->getMessage() : $f;
                         },
                         $e);
-                    },
-                    $errors);
+                },
+                $errors);
         }
         return $errors;
     }
 
-    public function addValidationError(
-            array &$errors, string $prop,
-            ConstraintViolationInterface|string $violation
-    ) {
+    public function addValidationError(array &$errors, string $prop, ConstraintViolationInterface|string $violation)
+    {
         if (!isset($errors[$prop])) {
             $errors[$prop] = [];
         }

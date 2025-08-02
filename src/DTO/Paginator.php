@@ -11,9 +11,8 @@ class Paginator
     protected int $count = 0;
     protected int $maxPage = 0;
 
-    public function __construct(
-            protected int $page = 0, protected int $limit = 0
-    ) {
+    public function __construct(protected int $page = 0, protected int $limit = 0)
+    {
         $this->page = max(1, $this->page);
     }
 
