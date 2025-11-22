@@ -6,6 +6,7 @@ use ArrayAccess;
 use DateTime;
 use DateTimeInterface;
 use Doctrine\ORM\Mapping\Entity;
+use Doctrine\Persistence\Proxy;
 use LogicException;
 use MLukman\DoctrineHelperBundle\Service\DataStore;
 use ReflectionClass;
@@ -32,12 +33,17 @@ abstract class RequestBody
         if ($thisReflection->hasMethod('prepareTargetPropertyValue')) {
             throw new LogicException(\sprintf("Class %s has outdated customization. It needs to override 'convertProperty' method instead of the deprecated 'prepareTargetPropertyValue'.", \get_class($this)));
         }
+        $specialMappings = $this->specialPropertyMappings($target);
+        $targetReflection = new ReflectionClass($target);
         foreach ($thisReflection->getProperties() as $request_property) {
             $property_name = $request_property->getName();
             $requestProperty = new PropertyInfo($this, $property_name);
-            if (!$requestProperty->isInitialized() || !$requestProperty->isReadable() ||
-                !(new ReflectionClass($target))->hasProperty($property_name) ||
-                (($targetProperty = new PropertyInfo($target, $property_name)) && !$targetProperty->isWritable())) {
+            $target_property_name = $specialMappings[$property_name] ?? $property_name;
+            if (
+                !$requestProperty->isInitialized() || !$requestProperty->isReadable() ||
+                !$targetReflection->hasProperty($target_property_name) ||
+                (($targetProperty = new PropertyInfo($target, $target_property_name)) && !$targetProperty->isWritable())
+            ) {
                 continue;
             }
             $converted = false;
@@ -80,6 +86,9 @@ abstract class RequestBody
             if (\is_scalar($requestPropertyValue)) { // if request property is scalar
                 return !empty($targetPropertyValue = $this->createRequestBodyTargetInterfaceFromScalarProperty($target, $property_name, $requestPropertyValue, $targetPropertyType, $context, $datastore) ?: $targetPropertyValue);
             } elseif ($requestPropertyValue instanceof RequestBody && ($targetPropertyValue instanceof RequestBodyTargetInterface || \is_null($targetPropertyValue))) { // if request property is RequestBody
+                if ($targetPropertyValue instanceof Proxy) {
+                    throw new LogicException(\sprintf("Property '%s' of class '%s' is found to be a Proxy object. Please disable lazy loading by adding fetch:EAGER to that property.", $property_name, \get_class($target)));
+                }
                 return !empty($targetPropertyValue = $this->populateChild($target, $property_name, $requestPropertyValue, $targetPropertyValue, null, $context, $datastore));
             }
         }
@@ -175,8 +184,14 @@ abstract class RequestBody
         string $property_name,
         mixed $target_property_value,
         mixed $context = null
-    ) {
-        
+    ) {}
+
+    /**
+     * If subclass needs to do simple translation from the request body property to the target property
+     */
+    public function specialPropertyMappings(RequestBodyTargetInterface $target): array
+    {
+        return [];
     }
 
     /**
@@ -188,5 +203,19 @@ abstract class RequestBody
     public function __get($name)
     {
         return null;
+    }
+
+    public function toArray(): array
+    {
+        $result = [];
+        $thisReflection = new ReflectionClass($this);
+        foreach ($thisReflection->getProperties() as $request_property) {
+            $property_name = $request_property->getName();
+            $requestProperty = new PropertyInfo($this, $property_name);
+            if ($requestProperty->isInitialized() && $requestProperty->isReadable()) {
+                $result[$property_name] = $requestProperty->getValue();
+            }
+        }
+        return $result;
     }
 }

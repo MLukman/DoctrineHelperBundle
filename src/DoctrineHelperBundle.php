@@ -4,6 +4,9 @@ namespace MLukman\DoctrineHelperBundle;
 
 use MLukman\DoctrineHelperBundle\Query\DateFunction;
 use MLukman\DoctrineHelperBundle\Query\MatchAgainst;
+use MLukman\DoctrineHelperBundle\Query\RandFunction;
+use MLukman\DoctrineHelperBundle\Type\DateStringType;
+use MLukman\DoctrineHelperBundle\Type\EncryptedObjectType;
 use MLukman\DoctrineHelperBundle\Type\EncryptedType;
 use MLukman\DoctrineHelperBundle\Type\FileType;
 use MLukman\DoctrineHelperBundle\Type\FSFileType;
@@ -30,6 +33,8 @@ class DoctrineHelperBundle extends AbstractBundle
                     'fsfile' => FSFileType::class,
                     'uuid' => UuidType::class,
                     'encrypted' => EncryptedType::class,
+                    'encrypted_object' => EncryptedObjectType::class,
+                    'datestring' => DateStringType::class,
                 ],
             ],
             'orm' => [
@@ -37,6 +42,7 @@ class DoctrineHelperBundle extends AbstractBundle
                     'string_functions' => [
                         'MATCH_AGAINST' => MatchAgainst::class,
                         'DATE' => DateFunction::class,
+                        'RAND' => RandFunction::class,
                     ],
                 ],
             ],

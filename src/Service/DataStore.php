@@ -80,7 +80,13 @@ class DataStore
         $qb = $this->queryBuilder($entity, 'a');
         $this->applyCriteriaToQueryBuilder($criteria, $qb);
         foreach ($sort as $col => $ord) {
-            $qb->addOrderBy("a.$col", $ord);
+            if (substr($ord, -2) == '()') {
+                // sort by function
+                $qb->addOrderBy($ord);
+                break;
+            } else {
+                $qb->addOrderBy("a.$col", $ord);
+            }
         }
         if ($limit > 0) {
             $qb->setMaxResults($limit);
@@ -108,7 +114,7 @@ class DataStore
         }
         $groupByField = array_filter($groupByField);
         if (empty($groupByField)) {
-            return 0;
+            return [];
         }
         $qb = $this->queryBuilder($entity, 'a');
         $this->applyCriteriaToQueryBuilder($criteria, $qb);
@@ -121,8 +127,8 @@ class DataStore
         $counts = [];
         $recurse = function (array $result, array &$fields) use (&$recurse) {
             return ($f = array_shift($fields)) ?
-            [($result[$f]) => $recurse($result, $fields)] :
-            $result['num'];
+                [($result[$f]) => $recurse($result, $fields)] :
+                $result['num'];
         };
         foreach ($qb->getQuery()->getArrayResult() as $result) {
             $fields = $groupByField;
@@ -197,8 +203,8 @@ class DataStore
     public function fulltextSearch($entity, array $fulltextColumns, string $searchterm, array $filters = []): QueryBuilder
     {
         $commaDelimitedColumns = join(", ", array_map(function ($item) {
-                return "e.$item";
-            }, $fulltextColumns));
+            return "e.$item";
+        }, $fulltextColumns));
         /** @var QueryBuilder $qb */
         $qb = $this->queryBuilder($entity, 'e')
             ->addSelect("MATCH_AGAINST ({$commaDelimitedColumns}, :searchterm 'IN BOOLEAN MODE') as HIDDEN score")

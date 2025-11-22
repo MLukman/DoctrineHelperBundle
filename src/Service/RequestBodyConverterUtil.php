@@ -73,7 +73,7 @@ class RequestBodyConverterUtil
             $processings[] = ['phase' => 'request_method_check', 'result' => 0, 'error' => 'Request method is not POST or PUT'];
             return false;
         }
-        $processings[] = ['phase' => 'request_method_check', 'result' => 1];
+        $processings[] = ['phase' => 'request_method_check', 'result' => 1, 'details' => 'Request method is ' . $request->getMethod()];
         return true;
     }
 

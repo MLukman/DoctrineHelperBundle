@@ -15,6 +15,11 @@ class PropertyInfo
     protected ReflectionProperty $reflection;
     protected array $types;
     protected static PropertyAccessor $accessor;
+    protected static array $typeMap = [
+        'integer' => 'int',
+        'boolean' => 'bool',
+        'double' => 'float',
+    ];
 
     public function __construct(
         protected object $object,
@@ -27,7 +32,8 @@ class PropertyInfo
 
         $this->reflection = $reflection ?: new ReflectionProperty($object, $name);
 
-        if (!($type = $this->reflection->getType())) {
+        $type = $this->reflection->getType();
+        if (!$type) {
             $this->types = [];
         } elseif ($type instanceof ReflectionUnionType) {
             $this->types = array_combine(array_map(fn($t) => $t->getName(), $type->getTypes()), $type->getTypes());
@@ -73,6 +79,18 @@ class PropertyInfo
     public function setValue(mixed $value): bool
     {
         if (!$this->isWritable()) {
+            return false;
+        }
+        $valueType = \gettype($value);
+        if ($valueType == 'object') {
+            $valueType = \get_class($value);
+        }
+        if (!$this->hasType(static::$typeMap[$valueType] ?? $valueType)) {
+            // print $this->name .': '.$valueType .' vs '.print_r($this->types, true);
+            // print '<br />';
+            return false;
+        }
+        if ($valueType == 'NULL' && !$this->allowsNull()) {
             return false;
         }
         static::$accessor->setValue($this->object, $this->name, $value);

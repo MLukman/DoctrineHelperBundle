@@ -128,6 +128,12 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
         return $this;
     }
 
+    public function setOuputFormat(string $format): void
+    {
+        $this->ouputFormat = $format;
+        $this->refreshProperties();
+    }
+
     public function get(?string $format = null): ?string
     {
         if (!$this->_image) {

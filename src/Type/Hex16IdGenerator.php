@@ -2,12 +2,12 @@
 
 namespace MLukman\DoctrineHelperBundle\Type;
 
-use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Id\AbstractIdGenerator;
-
-class Hex16IdGenerator extends AbstractIdGenerator
+/**
+ * Custom Id Generator using unique random 16-character hexadecimal
+ */
+class Hex16IdGenerator extends BaseIdGenerator
 {
-    public function generateId(EntityManagerInterface $em, $entity): string
+    protected function generateRandomId(): string
     {
         return bin2hex(random_bytes(8));
     }

@@ -15,11 +15,15 @@ class ImageType extends BlobType
     public function convertToPHPValue(mixed $value, AbstractPlatform $platform): ?ImageWrapper
     {
         $blob = parent::convertToPHPValue($value, $platform);
-        return $blob ? new ImageWrapper($blob) : null;
+        try {
+            return !empty($blob) ? new ImageWrapper($blob) : null;
+        } catch (\Exception) {
+            return null;
+        }
     }
 
     public function convertToDatabaseValue(mixed $value, AbstractPlatform $platform): mixed
     {
-        return $value ? $value->get() : null;
+        return $value instanceof ImageWrapper ? $value->get() : null;
     }
 }
