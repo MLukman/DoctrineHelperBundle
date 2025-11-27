@@ -39,11 +39,15 @@ abstract class RequestBody
             $property_name = $request_property->getName();
             $requestProperty = new PropertyInfo($this, $property_name);
             $target_property_name = $specialMappings[$property_name] ?? $property_name;
-            if (
-                !$requestProperty->isInitialized() || !$requestProperty->isReadable() ||
-                !$targetReflection->hasProperty($target_property_name) ||
-                (($targetProperty = new PropertyInfo($target, $target_property_name)) && !$targetProperty->isWritable())
-            ) {
+            if (!$requestProperty->isInitialized() || !$requestProperty->isReadable()) {
+                continue;
+            }
+            if (!$targetReflection->hasProperty($target_property_name)) {
+                $this->handleNonexistentProperty($target, $property_name, $requestProperty->getValue(), $context, $datastore);
+                continue;
+            }
+            $targetProperty = new PropertyInfo($target, $target_property_name);
+            if (!$targetProperty->isWritable()) {
                 continue;
             }
             $converted = false;
@@ -189,10 +193,21 @@ abstract class RequestBody
     /**
      * If subclass needs to do simple translation from the request body property to the target property
      */
-    public function specialPropertyMappings(RequestBodyTargetInterface $target): array
+    protected function specialPropertyMappings(RequestBodyTargetInterface $target): array
     {
         return [];
     }
+
+    /**
+     * If subclass needs to handle a property in request that does not map to the target property
+     */
+    protected function handleNonexistentProperty(
+        RequestBodyTargetInterface $target,
+        string $property_name,
+        mixed $requestPropertyValue,
+        mixed $context = null,
+        ?DataStore $datastore = null
+    ): void {}
 
     /**
      * Catch-all getter for missing/unknown properties that just returns null.

@@ -173,10 +173,10 @@ class DataStore
 
     /**
      *
-     * @param type $entity
+     * @param string $entity
      * @param array $filters
      * @param array $sort
-     * @param type $limit
+     * @param int $limit
      * @return array
      */
     public function queryUsingOr(string $entity, array $filters = [], array $sort = [], int $limit = 0): array
@@ -194,7 +194,7 @@ class DataStore
 
     /**
      * Perform full-text for $searchterm on the provided $fulltextColumns
-     * @param type $entity The entity class name
+     * @param string $entity The entity class name
      * @param array $fulltextColumns The array of columns that have fulltext index
      * @param string $searchterm The term to search for
      * @param array $filters Optional filter conditions (added as WHERE key = value)

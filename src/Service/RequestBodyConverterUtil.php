@@ -38,16 +38,14 @@ class RequestBodyConverterUtil
         if (!$this->serializer) {
             $phpDocExtractor = new PhpDocExtractor();
             $typeExtractor = new PropertyInfoExtractor(
-                typeExtractors:
-                [
+                typeExtractors: [
                     new ConstructorExtractor([$phpDocExtractor]),
                     $phpDocExtractor,
                     new ReflectionExtractor(),
                 ]
             );
             $this->serializer = new Serializer(
-                normalizers:
-                [
+                normalizers: [
                     new ObjectNormalizer(propertyTypeExtractor: $typeExtractor),
                     new DateTimeNormalizer(),
                     new ArrayDenormalizer(),
@@ -82,16 +80,17 @@ class RequestBodyConverterUtil
         try {
             $body_json = ($request->headers->get('Content-type') == 'application/json' ? $request->getContent() : \json_encode($request->request->all()));
             if (!($body_array = \json_decode($body_json, true))) {
-                $processings[] = ['phase' => 'read_request', 'result' => 0, 'error' => 'Unable to decode JSON body'];
-                return null;
+                $processings[] = ['phase' => 'read_request', 'result' => 0, 'error' => 'Unable to decode JSON body, will default to empty object {}'];
+                $body_array = [];
+            } else {
+                $processings[] = ['phase' => 'read_request', 'result' => 1, 'details' => $body_array];
             }
-            $processings[] = ['phase' => 'read_request', 'result' => 1, 'details' => $body_array];
 
             try {
                 $parsed = $this->parseValues($body_array, $type);
                 $processings[] = ['phase' => 'parse_request', 'result' => 1, 'details' => $parsed];
             } catch (Exception $e) {
-                $processings[] = ['phase' => 'parse_request', 'result' => 0, 'error' => 'RequestBody object failed validations', 'details' => $e->getTrace()];
+                $processings[] = ['phase' => 'parse_request', 'result' => 0, 'error' => 'Unable to parse JSON body into RequestBody object', 'details' => $e->getTrace()];
                 return null;
             }
 
@@ -122,8 +121,8 @@ class RequestBodyConverterUtil
         $toDeserialize = static::array_filter_recursive($values, fn($val) => $val !== "");
         // Actual deserialization is handled by Symfony serializer
         return $this->serializer->deserialize(\json_encode($toDeserialize), $className, 'json', [
-                ObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true,
-                ObjectNormalizer::SKIP_NULL_VALUES => true,
+            ObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => true,
+            ObjectNormalizer::SKIP_NULL_VALUES => true,
         ]);
     }
 
@@ -131,10 +130,13 @@ class RequestBodyConverterUtil
     {
         $details = [];
 
-        if (is_array($target)) { // if $target is array then recurse
-            foreach ($target as $tkey => &$tval) {
-                if (isset($files[$tkey])) {
-                    $details[$tkey] = $this->handleFileUpload($files[$tkey], $tval);
+        if (is_array($target)) {
+            foreach ($files as $fkey => $fval) {
+                if ($fval instanceof UploadedFile) {
+                    $target[$fkey] = $fval;
+                    $details[$fkey] = "File remains as " . UploadedFile::class;
+                } else {
+                    $details[$fkey] = "Skipped: is not instance of UploadedFile class";
                 }
             }
             return $details;
@@ -162,8 +164,7 @@ class RequestBodyConverterUtil
             // collect the type(s) supported by the target property
             $ftype = $targetReflection->getProperty($fkey)->getType();
             $ftypes = $ftype instanceof ReflectionUnionType ?
-                array_map(fn(ReflectionNamedType $ntype) => $ntype->getName(), $ftype->getTypes()) :
-                ($ftype instanceof ReflectionNamedType ? [$ftype->getName()] : []);
+                array_map(fn(ReflectionNamedType $ntype) => $ntype->getName(), $ftype->getTypes()) : ($ftype instanceof ReflectionNamedType ? [$ftype->getName()] : []);
 
             // check & process whether any of the type(s) implements FromUploadedFileInterface
             foreach ($ftypes as $type) {
@@ -194,7 +195,7 @@ class RequestBodyConverterUtil
         return $details;
     }
 
-    public static function array_filter_recursive($input, Closure $callback = null)
+    public static function array_filter_recursive($input, ?Closure $callback = null)
     {
         foreach ($input as &$value) {
             if (is_array($value)) {

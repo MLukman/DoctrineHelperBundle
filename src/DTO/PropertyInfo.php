@@ -86,8 +86,6 @@ class PropertyInfo
             $valueType = \get_class($value);
         }
         if (!$this->hasType(static::$typeMap[$valueType] ?? $valueType)) {
-            // print $this->name .': '.$valueType .' vs '.print_r($this->types, true);
-            // print '<br />';
             return false;
         }
         if ($valueType == 'NULL' && !$this->allowsNull()) {
