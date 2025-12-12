@@ -10,6 +10,7 @@ use MLukman\DoctrineHelperBundle\Type\EncryptedObjectType;
 use MLukman\DoctrineHelperBundle\Type\EncryptedType;
 use MLukman\DoctrineHelperBundle\Type\FileType;
 use MLukman\DoctrineHelperBundle\Type\FSFileType;
+use MLukman\DoctrineHelperBundle\Type\FSImageType;
 use MLukman\DoctrineHelperBundle\Type\ImageType;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -29,6 +30,7 @@ class DoctrineHelperBundle extends AbstractBundle
             'dbal' => [
                 'types' => [
                     'image' => ImageType::class,
+                    'fsimage' => FSImageType::class,
                     'file' => FileType::class,
                     'fsfile' => FSFileType::class,
                     'uuid' => UuidType::class,

@@ -71,7 +71,7 @@ class FileWrapper implements FromUploadedFileInterface, Stringable
         ?string $name,
         int $size,
         ?string $mimetype,
-        string $uuid = null,
+        ?string $uuid = null,
         ?DateTime $datetime = null
     ) {
         $this->name = $name;

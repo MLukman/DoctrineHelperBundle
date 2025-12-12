@@ -3,11 +3,14 @@
 namespace MLukman\DoctrineHelperBundle\Type;
 
 use Exception;
+use finfo;
 use Imagine\Image\AbstractImagine;
 use Imagine\Image\Box;
 use Imagine\Image\ImageInterface;
 use Imagine\Image\Point;
+use InvalidArgumentException;
 use JsonSerializable;
+use Ramsey\Uuid\Uuid;
 use Serializable;
 use Stringable;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -27,20 +30,14 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
     private static string $defaultOutputFormat = 'png';
 
     /**
-     * @var string The format of the image (either png or jpeg)
-     */
-    private ?string $ouputFormat = 'png';
-
-    /**
      * @var AbstractImagine
      */
-    private ?AbstractImagine $_imagine = null;
-    private string $engineType = 'gd';
+    private ?AbstractImagine $imagine = null;
 
     /**
      * @var ImageInterface $image
      */
-    private ?ImageInterface $_image = null;
+    private ?ImageInterface $image = null;
 
     /**
      * @var string The mime type of the image
@@ -66,39 +63,45 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
      */
     private ?string $downloadLink = null;
 
+    private bool $mightBeModified = false;
+
     /**
      * Construct from either image stream or filename or Imagine\Image\ImageInterface
-     * @param resource|string|ImageInterface $image
-     * @param type $outputFormat
+     * @param resource|string|ImageInterface|callable $source
+     * @param string $outputFormat
      */
-    public function __construct(mixed $image = null, ?string $outputFormat = null, string $engineType = 'gd')
-    {
-        $this->engineType = $engineType;
-        $this->ouputFormat = $outputFormat ?: self::$defaultOutputFormat;
-        if (is_resource($image)) {
-            $this->loadResource($image);
-        } elseif (is_string($image) && file_exists($image)) {
-            $this->open($image);
-        } elseif ($image instanceof ImageInterface) {
-            $this->_image = $image;
+    public function __construct(
+        private mixed $source = null,
+        private string $outputFormat = '',
+        private string $engineType = 'gd',
+        private ?string $uuid = null
+    ) {
+        if (empty($this->source) && empty($this->uuid)) {
+            throw new InvalidArgumentException('At least one of source or uuid must be set');
+        }
+        if (empty($this->outputFormat)) {
+            $this->outputFormat  = static::$defaultOutputFormat;
+        }
+        if (!empty($this->source)) {
+            $this->mightBeModified = true;
         }
     }
 
     protected function engine(): AbstractImagine
     {
-        if (!$this->_imagine) {
+        if (!$this->imagine) {
             switch (strtolower($this->engineType)) {
                 case 'gmagick':
-                    $this->_imagine = new \Imagine\Gmagick\Imagine();
+                    $this->imagine = new \Imagine\Gmagick\Imagine();
                     break;
                 case 'imagick':
-                    $this->_imagine = new \Imagine\Imagick\Imagine();
+                    $this->imagine = new \Imagine\Imagick\Imagine();
                     break;
                 default:
-                    $this->_imagine = new \Imagine\Gd\Imagine();
+                    $this->imagine = new \Imagine\Gd\Imagine();
             }
         }
-        return $this->_imagine;
+        return $this->imagine;
     }
 
     public function setDefaultMaxWidthHeight(int $defaultMaxWidth, int $defaultMaxHeight): void
@@ -107,59 +110,99 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
         $this->defaultMaxHeight = $defaultMaxHeight;
     }
 
+    public function setSource(mixed $source): self
+    {
+        if (!empty($this->source)) {
+            $this->mightBeModified = true;
+        }
+        $this->source = $source;
+        return $this;
+    }
+
+    public function load(): self
+    {
+        if ($this->source instanceof ImageInterface) {
+            $this->image = $this->source;
+        } elseif (is_resource($this->source)) {
+            rewind($this->source);
+            $this->image = $this->engine()->read($this->source);
+            rewind($this->source);
+            $fi = new finfo(FILEINFO_MIME_TYPE);
+            $mime = $fi->buffer(stream_get_contents($this->source));
+            if (substr($mime, 0, 6) == 'image/') {
+                $this->outputFormat = substr($mime, 6);
+            }
+        } elseif (is_string($this->source) && file_exists($this->source)) {
+            $this->image = $this->engine()->open($this->source);
+            $mime = mime_content_type($this->source);
+            if (substr($mime, 0, 6) == 'image/') {
+                $this->outputFormat = substr($mime, 6);
+            }
+        } elseif (is_callable($this->source)) {
+            $this->source = call_user_func($this->source);
+            if (!is_callable($this->source)) {
+                $this->load();
+            }
+        }
+
+        return $this;
+    }
+
     public function open($filename): self
     {
-        $this->_image = $this->engine()->open($filename);
-        $this->refreshProperties();
+        $this->setSource($filename);
+        $this->load();
         return $this;
     }
 
     public function loadResource($resource): self
     {
-        $this->_image = $this->engine()->read($resource);
-        $this->refreshProperties();
+        $this->setSource($resource);
+        $this->load();
         return $this;
     }
 
     protected function refreshProperties(): self
     {
-        $this->base64 = base64_encode($this->get($this->ouputFormat));
-        $this->mimetype = 'image/' . $this->ouputFormat;
+        $this->base64 = base64_encode($this->get($this->outputFormat));
+        $this->mimetype = 'image/' . $this->outputFormat;
         return $this;
     }
 
-    public function setOuputFormat(string $format): void
+    public function setOutputFormat(string $format): void
     {
-        $this->ouputFormat = $format;
+        $this->outputFormat = $format;
         $this->refreshProperties();
     }
 
     public function get(?string $format = null): ?string
     {
-        if (!$this->_image) {
+        if (!($image = $this->getImage())) {
             return null;
         }
-        return $this->_image->get($format ?: $this->ouputFormat);
+        return $image->get($format ?: $this->outputFormat);
     }
 
     public function getImage(): ?ImageInterface
     {
-        return $this->_image;
+        if (!$this->image) {
+            $this->load();
+        }
+        return $this->image;
     }
 
     public function resize(int $maxWidth = 0, int $maxHeight = 0, string $resizeMode = self::RESIZE_FIT): self
     {
-        if (!$this->_image) {
+        if (!($image = $this->getImage())) {
             return $this;
         }
 
-        $size = $this->_image->getSize();
+        $size = $image->getSize();
         $oriWidth = $size->getWidth();
         $oriHeight = $size->getHeight();
         $ratio = $oriWidth / $oriHeight;
         $targetWidth = $maxWidth > 0 ? $maxWidth : $this->defaultMaxWidth;
-        $targetHeight = $maxHeight > 0 ? $maxHeight :
-            ($maxWidth > 0 ? $maxWidth : $this->defaultMaxHeight);
+        $targetHeight = $maxHeight > 0 ? $maxHeight : ($maxWidth > 0 ? $maxWidth : $this->defaultMaxHeight);
         $targetRatio = $targetWidth / $targetHeight;
 
         switch ($resizeMode) {
@@ -171,13 +214,13 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
             case static::RESIZE_CROP:
                 if ($targetRatio > $ratio) {
                     $newHeight = $oriWidth / $targetRatio;
-                    $this->_image->crop(
+                    $image->crop(
                         new Point(0, ($oriHeight - $newHeight) / 2),
                         new Box($oriWidth, $newHeight)
                     );
                 } elseif ($targetRatio < $ratio) {
                     $newWidth = $oriHeight * $targetRatio;
-                    $this->_image->crop(
+                    $image->crop(
                         new Point(($oriWidth - $newWidth) / 2, 0),
                         new Box($newWidth, $oriHeight)
                     );
@@ -198,7 +241,7 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
         }
 
         if ($width != $oriWidth || $height != $oriHeight) {
-            $this->_image->resize(new Box($width, $height));
+            $image->resize(new Box($width, $height));
             $this->refreshProperties();
         }
         return $this;
@@ -206,17 +249,17 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
 
     public function getWidth(): int
     {
-        return $this->_image ? $this->_image->getSize()->getWidth() : 0;
+        return ($image = $this->getImage()) ? $image->getSize()->getWidth() : 0;
     }
 
     public function getHeight(): int
     {
-        return $this->_image ? $this->_image->getSize()->getHeight() : 0;
+        return ($image = $this->getImage()) ? $image->getSize()->getHeight() : 0;
     }
 
     public function __serialize(): array
     {
-        return ['mimetype' => $this->mimetype, 'base64' => $this->base64];
+        return ['mimetype' => $this->mimetype ?? null, 'base64' => $this->base64 ?? null];
     }
 
     // For Serializable
@@ -300,6 +343,29 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
             $response->isNotModified($request);
         }
         return $response;
+    }
+
+    public function checksum(): ?string
+    {
+        return ($content = $this->get()) ? sha1($content) : null;
+    }
+
+    public function uuid(): string
+    {
+        if (!$this->uuid) {
+            $this->uuid = Uuid::uuid7();
+        }
+        return $this->uuid;
+    }
+
+    public function mightBeModified(): bool
+    {
+        return $this->mightBeModified;
+    }
+
+    public function getOutputFormat(): string
+    {
+        return $this->outputFormat;
     }
 
     public static function getDefaultOutputFormat(): string

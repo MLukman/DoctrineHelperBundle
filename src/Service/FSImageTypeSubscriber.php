@@ -13,7 +13,7 @@ use Doctrine\ORM\Event\PreUpdateEventArgs;
 use Doctrine\ORM\Events;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\Persistence\Proxy;
-use MLukman\DoctrineHelperBundle\Type\FileWrapper;
+use MLukman\DoctrineHelperBundle\Type\ImageWrapper;
 use ReflectionClass;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
@@ -23,7 +23,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 #[AsDoctrineListener(event: Events::postLoad)]
 #[AsDoctrineListener(event: Events::postRemove)]
 #[AsDoctrineListener(event: Events::postFlush)]
-final class FSFileTypeSubscriber
+final class FSImageTypeSubscriber
 {
     protected array $filesToDelete = [];
     protected array $filesToStore = [];
@@ -39,14 +39,15 @@ final class FSFileTypeSubscriber
     {
         // if the update set null to previously contained value,
         // store the path to the old path to be deleted during postUpdate event
-        $this->iterateFSFileProperties(
+        $this->iterateFSImageProperties(
             $args->getObject(),
-            function (string $name, ?FileWrapper $file, string $directory) use ($args) {
+            function (string $name, ?ImageWrapper $file, string $directory) use ($args) {
                 if (
                     $args->hasChangedField($name) && ($oldval = $args->getOldValue($name)) &&
-                    (is_null($file) || $file->getUuid() != $oldval->getUuid())
+                    (is_null($file) || $file->uuid() != $oldval->uuid())
                 ) {
-                    $this->filesToDelete[] = $directory . $oldval->getUuid();
+                    $filepath = $directory . $oldval->uuid();
+                    $this->filesToDelete[$filepath] = $filepath;
                 }
             }
         );
@@ -84,11 +85,11 @@ final class FSFileTypeSubscriber
 
     public function postLoad(PostLoadEventArgs $args): void
     {
-        $this->iterateFSFileProperties(
+        $this->iterateFSImageProperties(
             $args->getObject(),
-            function (string $name, ?FileWrapper $file, string $directory) {
-                if ($file && file_exists($filepath = $directory . $file->getUuid())) {
-                    $file->setStreamCallback(function () use ($filepath) {
+            function (string $name, ?ImageWrapper $file, string $directory) {
+                if ($file && file_exists($filepath = $directory . $file->uuid())) {
+                    $file->setSource(function () use ($filepath) {
                         $stream = fopen('php://temp', "w+b");
                         fwrite($stream, file_get_contents($filepath));
                         rewind($stream);
@@ -101,11 +102,11 @@ final class FSFileTypeSubscriber
 
     public function postRemove(PostRemoveEventArgs $args): void
     {
-        $this->iterateFSFileProperties(
+        $this->iterateFSImageProperties(
             $args->getObject(),
-            function (string $name, ?FileWrapper $file, string $directory) {
-                if ($file && file_exists($filepath = $directory . $file->getUuid())) {
-                    $this->filesToDelete[] = $filepath;
+            function (string $name, ?ImageWrapper $file, string $directory) {
+                if ($file && file_exists($filepath = $directory . $file->uuid())) {
+                    $this->filesToDelete[$filepath] = $filepath;
                 }
             }
         );
@@ -113,17 +114,17 @@ final class FSFileTypeSubscriber
 
     protected function flagFilesToStore(object $entity)
     {
-        $this->iterateFSFileProperties(
+        $this->iterateFSImageProperties(
             $entity,
-            function (string $name, ?FileWrapper $file, string $directory) {
+            function (string $name, ?ImageWrapper $file, string $directory) {
                 if ($file && $file->mightBeModified()) {
-                    $this->filesToStore[$directory . $file->getUuid()] = $file->getStream();
+                    $this->filesToStore[$directory . $file->uuid()] = $file->get();
                 }
             }
         );
     }
 
-    protected function iterateFSFileProperties(object $entity, Closure $callback)
+    protected function iterateFSImageProperties(object $entity, Closure $callback)
     {
         $refl = new ReflectionClass($entity);
         if ($entity instanceof Proxy) {
@@ -133,10 +134,10 @@ final class FSFileTypeSubscriber
             /* @var $property ReflectionProperty */
             foreach ($property->getAttributes(ORM\Column::class) as $column) {
                 /* @var $column ReflectionAttribute */
-                if (($column->getArguments()['type'] ?? null) != 'fsfile') {
+                if (($column->getArguments()['type'] ?? null) != 'fsimage') {
                     continue;
                 }
-                $directory = $this->dir . '/var/fsfiles/' . str_replace('\\', '/', $refl->getName()) . '/' . $property->getName() . '/';
+                $directory = $this->dir . '/var/fsimages/' . str_replace('\\', '/', $refl->getName()) . '/' . $property->getName() . '/';
                 if (!is_dir($directory)) {
                     mkdir($directory, 0777, true);
                 }
