@@ -5,9 +5,8 @@ namespace MLukman\DoctrineHelperBundle\Type;
 use Exception;
 use finfo;
 use Imagine\Image\AbstractImagine;
-use Imagine\Image\Box;
 use Imagine\Image\ImageInterface;
-use Imagine\Image\Point;
+use Imagine\Image\Palette\Color\ColorInterface;
 use InvalidArgumentException;
 use JsonSerializable;
 use Ramsey\Uuid\Uuid;
@@ -23,6 +22,8 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
     public const RESIZE_FIT = 'fit';
     public const RESIZE_CROP = 'crop';
     public const RESIZE_STRETCH = 'stretch';
+    public const RESIZE_BLURBG = 'blurbg';
+    public const RESIZE_SMART = 'smart'; // RESIZE_BLURBG if different portrait/landscape orientation then original, RESIZE_CROP otherwise
 
     /**
      * @var string The default format of the image (either png or jpeg) for newly created instances
@@ -87,7 +88,7 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
         }
     }
 
-    protected function engine(): AbstractImagine
+    public function engine(): AbstractImagine
     {
         if (!$this->imagine) {
             switch (strtolower($this->engineType)) {
@@ -191,57 +192,19 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
         return $this->image;
     }
 
-    public function resize(int $maxWidth = 0, int $maxHeight = 0, string $resizeMode = self::RESIZE_FIT): self
+    public function resize(int $maxWidth = 0, int $maxHeight = 0, ImageWrapperResizer|string $resizer = ImageWrapperResizer::SMART, ?ColorInterface $bgColor = null): self
     {
-        if (!($image = $this->getImage())) {
+        if (!$this->getImage()) {
             return $this;
         }
-
-        $size = $image->getSize();
-        $oriWidth = $size->getWidth();
-        $oriHeight = $size->getHeight();
-        $ratio = $oriWidth / $oriHeight;
-        $targetWidth = $maxWidth > 0 ? $maxWidth : $this->defaultMaxWidth;
-        $targetHeight = $maxHeight > 0 ? $maxHeight : ($maxWidth > 0 ? $maxWidth : $this->defaultMaxHeight);
-        $targetRatio = $targetWidth / $targetHeight;
-
-        switch ($resizeMode) {
-            case static::RESIZE_STRETCH:
-                $width = $targetWidth;
-                $height = $targetHeight;
-                break;
-
-            case static::RESIZE_CROP:
-                if ($targetRatio > $ratio) {
-                    $newHeight = $oriWidth / $targetRatio;
-                    $image->crop(
-                        new Point(0, ($oriHeight - $newHeight) / 2),
-                        new Box($oriWidth, $newHeight)
-                    );
-                } elseif ($targetRatio < $ratio) {
-                    $newWidth = $oriHeight * $targetRatio;
-                    $image->crop(
-                        new Point(($oriWidth - $newWidth) / 2, 0),
-                        new Box($newWidth, $oriHeight)
-                    );
-                }
-                $width = $targetWidth;
-                $height = $targetHeight;
-                break;
-            case static::RESIZE_FIT:
-            default:
-                if ($targetRatio > $ratio) {
-                    $height = $targetHeight;
-                    $width = $targetHeight * $ratio;
-                } else {
-                    $width = $targetWidth;
-                    $height = $targetWidth / $ratio;
-                }
-                break;
+        if (is_string($resizer)) {
+            $resizer = ImageWrapperResizer::tryFrom($resizer);
+            if ($resizer == null) {
+                return $this;
+            }
         }
 
-        if ($width != $oriWidth || $height != $oriHeight) {
-            $image->resize(new Box($width, $height));
+        if ($resizer->resize($this->getImage(), $this->imagine, $maxWidth, $maxHeight, $bgColor)) {
             $this->refreshProperties();
         }
         return $this;
