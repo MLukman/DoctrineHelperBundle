@@ -149,7 +149,7 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
         return $this;
     }
 
-    public function open($filename): self
+    public function open(string $filename): self
     {
         $this->setSource($filename);
         $this->load();
@@ -237,7 +237,7 @@ class ImageWrapper implements Serializable, JsonSerializable, Stringable, FromUp
             $stream = fopen('php://temp', 'r+');
             fwrite($stream, base64_decode($serialized['base64'], true));
             rewind($stream);
-            $this->loadResource($stream);
+            $this->setSource($stream);
             fclose($stream);
         }
     }
