@@ -9,7 +9,12 @@ use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
-use Symfony\Component\PropertyInfo\Type;
+use Symfony\Component\TypeInfo\Type;
+use Symfony\Component\TypeInfo\Type\BuiltinType;
+use Symfony\Component\TypeInfo\Type\CollectionType;
+use Symfony\Component\TypeInfo\Type\ObjectType;
+use Symfony\Component\TypeInfo\Type\UnionType;
+use Symfony\Component\TypeInfo\TypeIdentifier;
 
 /**
  * This class is the base class for objects that will be serialized into response bodies.
@@ -65,11 +70,12 @@ abstract class ResponseBody
             }
             try {
                 $source_property_value = $propertyAccessor->getValue($source, $property_name);
-                $response_property_types = $propertyInfoExtractor->getTypes(get_class($response), $property_name);
+                $response_property_type = $propertyInfoExtractor->getType(get_class($response), $property_name);
                 $response_property_value = $response->handleSourcePropertyValue(
                     $source_property_value,
-                    $response_property_types ? $response_property_types[0] : null,
-                    $processedSources);
+                    $response_property_type ? $response_property_type : null,
+                    $processedSources
+                );
                 $propertyAccessor->setValue($response, $property_name, $response_property_value);
             } catch (InvalidArgumentException) {
                 // exception for one property only skips that property
@@ -81,20 +87,48 @@ abstract class ResponseBody
     protected function handleSourcePropertyValue(mixed $source_property_value, ?Type $response_property_type, array $processedSources): mixed
     {
         if ($source_property_value && $response_property_type) {
-            if ($response_property_type->isCollection()) {
+            if ($response_property_type instanceof CollectionType) {
                 $array = [];
-                $response_property_item_type = current($response_property_type->getCollectionValueTypes());
+                $response_property_item_type = $response_property_type->getCollectionValueType();
                 foreach ($source_property_value as $key => $val) {
                     $array[$key] = $this->handleSourcePropertyValue(
                         $val,
                         $response_property_item_type ?: null,
-                        $processedSources);
+                        $processedSources
+                    );
                 }
                 return $array;
-            } elseif (($response_property_class = $response_property_type->getClassName()) && is_subclass_of($response_property_class, ResponseBody::class) && $source_property_value instanceof ResponseBodySourceInterface) {
-                return static::createResponseFromSource($source_property_value, $response_property_class, $processedSources);
-            } elseif ($response_property_type->getBuiltinType() == 'string' && $source_property_value instanceof \Stringable) {
+            }
+
+            if ($response_property_type instanceof UnionType) {
+                foreach ($response_property_type->getTypes() as $single_type) {
+                    $response_property_value = $this->handleSourcePropertyValue(
+                        $source_property_value,
+                        $single_type,
+                        $processedSources
+                    );
+                    if ($response_property_value !== $source_property_value) {
+                        break;
+                    }
+                }
+                return $response_property_value;
+            }
+
+            if (
+                $response_property_type instanceof BuiltinType &&
+                $response_property_type->getTypeIdentifier() == TypeIdentifier::STRING &&
+                $source_property_value instanceof \Stringable
+            ) {
                 return $source_property_value->__toString();
+            }
+
+            if (
+                $response_property_type instanceof ObjectType &&
+                ($response_property_class = $response_property_type->getClassName()) &&
+                is_subclass_of($response_property_class, ResponseBody::class) &&
+                $source_property_value instanceof ResponseBodySourceInterface
+            ) {
+                return static::createResponseFromSource($source_property_value, $response_property_class, $processedSources);
             }
         }
         return $source_property_value;

@@ -126,7 +126,7 @@ class RequestBodyConverterUtil
         ]);
     }
 
-    protected function handleFileUpload(array $files, &$target): array
+    protected function handleFileUpload(array $files, array|object &$target): array
     {
         $details = [];
 
@@ -195,7 +195,7 @@ class RequestBodyConverterUtil
         return $details;
     }
 
-    public static function array_filter_recursive($input, ?Closure $callback = null)
+    public static function array_filter_recursive(array $input, ?Closure $callback = null)
     {
         foreach ($input as &$value) {
             if (is_array($value)) {

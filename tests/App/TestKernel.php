@@ -36,9 +36,9 @@ class TestKernel extends Kernel
         ];
     }
 
-    public function registerContainerConfiguration(LoaderInterface $loader)
+    public function registerContainerConfiguration(LoaderInterface $loader):void
     {
-        $loader->load(function (ContainerBuilder $container, string $env = null) {
+        $loader->load(function (ContainerBuilder $container, ?string $env = null) {
             foreach ($this->services as $service) {
                 $container->setDefinition(
                     $service,
